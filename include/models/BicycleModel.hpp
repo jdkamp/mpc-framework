@@ -4,24 +4,18 @@
 #include "../SystemModel.hpp"
 #include <Eigen/Dense>
 
+// Kinematic bicycle model — concrete implementation of SystemModel.
+// State: [px, py, psi, v]  Input: [delta, a]
 class BicycleModel : public SystemModel {
 public:
     // Sets wheel base
     BicycleModel(double wheelbase) : L_(wheelbase) {}
 
-    // Returns state derivative ẋ = f(x, u) 
+    // SystemModel interface
     Eigen::VectorXd dynamics(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
-    
-    // Returns state derivative xdot = f(x, u)
     Eigen::MatrixXd jacobian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
-    
-    // Returns input derivative xdot = f(x, u)
     Eigen::MatrixXd jacobian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
-    
-    // Returns state dimension
     int state_dim() const override;
-    
-    // Returns input dimension
     int input_dim() const override;
 
 
