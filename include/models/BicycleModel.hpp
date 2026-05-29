@@ -1,14 +1,14 @@
 #ifndef MPC_BICYCLE_MODEL_HPP
 #define MPC_BICYCLE_MODEL_HPP
 
-#include "../SystemModel.hpp"
+#include "SystemModel.hpp"
 #include <Eigen/Dense>
 
 // Kinematic bicycle model — concrete implementation of SystemModel.
 // State: [px, py, psi, v]  Input: [delta, a]
 class BicycleModel : public SystemModel {
 public:
-    // Sets wheel base
+    // Construct kinematic bicycle model with the wheelbase L
     BicycleModel(double wheelbase) : L_(wheelbase) {}
 
     // SystemModel interface
