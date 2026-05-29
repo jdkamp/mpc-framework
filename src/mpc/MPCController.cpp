@@ -1,6 +1,7 @@
 #include "mpc/MPCController.hpp"
 #include <cmath>
 #include <OsqpEigen/OsqpEigen.h>
+#include <chrono>
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
@@ -64,6 +65,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     SparseMatrix<double> P_sparse = P.sparseView();
     SparseMatrix<double> A_con = SparseMatrix<double>(0, m * N); // no constraints
 
+    auto t_start = std::chrono::high_resolution_clock::now();   // Start timer
     // Setup solver
     OsqpEigen::Solver solver;
     solver.settings()->setVerbosity(false);
@@ -73,10 +75,16 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     solver.data()->setGradient(q);
     solver.initSolver();
     solver.solveProblem();
+    
+    auto t_end = std::chrono::high_resolution_clock::now();     // End timer
+    solve_time_ = std::chrono::duration<double>(t_end - t_start).count();
 
+    
     // Extract first control input
     VectorXd U = solver.getSolution();
+    // Predicted trajectory
+    predicted_trajectory_ = Sx * x0 + Su * U;
+    
     return U.segment(0, m);
-
-
 }
+
