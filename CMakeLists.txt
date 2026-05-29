@@ -75,3 +75,12 @@ target_link_libraries(tests
 )
 include(GoogleTest)
 gtest_discover_tests(tests)
+
+
+add_executable(lane_keeping
+    examples/lane_keeping/main.cpp
+)
+target_link_libraries(lane_keeping
+    mpc_controller
+)
+

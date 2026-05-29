@@ -70,3 +70,9 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Python environment
+.venv/
+
+# output files
+output/
