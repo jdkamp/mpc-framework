@@ -19,10 +19,15 @@ int main() {
     config.N = 30; // prediction horizon
     config.dt = 0.1; // time step
     config.Q = MatrixXd::Zero(4, 4);
+    config.Q(0,0) = 0.0;  // px — longitudinal tracking
     config.Q(1,1) = 10.0;  // py — lane tracking
     config.Q(2,2) = 50.0;  // psi — heading
     config.Q(3,3) = 10.0;  // v — velocity
-    // px weight = 0, don't care about longitudinal position
+    config.Qf = MatrixXd::Zero(4, 4);
+    config.Qf(0,0) = 20.0;  // px — longitudinal tracking
+    config.Qf(1,1) = 20.0;  // py — lane tracking
+    config.Qf(2,2) = 100.0;  // psi — heading
+    config.Qf(3,3) = 20.0;  // v — velocity
     config.R = MatrixXd::Zero(2, 2);
     config.R(0,0) = 1.0;   // delta
     config.R(1,1) = 10.0; // a acceleration

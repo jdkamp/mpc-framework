@@ -10,6 +10,7 @@ struct MPCConfig {
     double dt;          // time step [s]
     Eigen::MatrixXd Q;  // Q weights
     Eigen::MatrixXd R;  // R weights
+    Eigen::MatrixXd Qf; // terminal cost weight
     Eigen::VectorXd u_min; // minimum control input
     Eigen::VectorXd u_max; // maximum control input
 };

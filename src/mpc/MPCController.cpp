@@ -56,6 +56,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
         Q_bar.block(i*n, i*n, n, n) = config_.Q;
         R_bar.block(i*m, i*m, m, m) = config_.R;
     }
+    Q_bar.block((N-1)*n, (N-1)*n, n, n) = config_.Qf; // terminal cost
 
     // Build P and q
     MatrixXd P = Su.transpose() * Q_bar * Su + R_bar;
