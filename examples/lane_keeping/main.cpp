@@ -26,6 +26,9 @@ int main() {
     config.R = MatrixXd::Zero(2, 2);
     config.R(0,0) = 1.0;   // delta
     config.R(1,1) = 10.0; // a acceleration
+    config.u_min = (VectorXd(2) << -0.5, -3.0).finished();  // max steering angle, max acceleration
+    config.u_max = (VectorXd(2) << 0.5, 3.0).finished();    // min steering angle, min acceleration
+
 
 
     MPCController mpc(model, config);
