@@ -68,9 +68,11 @@ target_link_libraries(mpc_controller PUBLIC
 
 add_executable(tests
     tests/BicycleModelTest.cpp
+    tests/MPCControllerTest.cpp
 )
 target_link_libraries(tests
     bicycle_model
+    mpc_controller
     GTest::gtest_main
 )
 include(GoogleTest)
