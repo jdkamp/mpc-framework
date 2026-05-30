@@ -10,6 +10,8 @@ struct MPCConfig {
     double dt;          // time step [s]
     Eigen::MatrixXd Q;  // Q weights
     Eigen::MatrixXd R;  // R weights
+    Eigen::VectorXd u_min; // minimum control input
+    Eigen::VectorXd u_max; // maximum control input
 };
 
 // MPC controller - solves a QP at each time step using a linearized system model

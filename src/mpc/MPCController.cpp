@@ -63,14 +63,23 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
 
     // Convert to sparse
     SparseMatrix<double> P_sparse = P.sparseView();
-    SparseMatrix<double> A_con = SparseMatrix<double>(0, m * N); // no constraints
+
+    // Input constraints
+    VectorXd lb = config_.u_min.replicate(N, 1);
+    VectorXd up = config_.u_max.replicate(N, 1);
+
+    // State constraints
+    SparseMatrix<double> A_con = MatrixXd::Identity(m*N, m*N).sparseView();
 
     auto t_start = std::chrono::high_resolution_clock::now();   // Start timer
     // Setup solver
     OsqpEigen::Solver solver;
     solver.settings()->setVerbosity(false);
     solver.data()->setNumberOfVariables(m * N);
-    solver.data()->setNumberOfConstraints(0);
+    solver.data()->setNumberOfConstraints(m * N);
+    solver.data()->setLinearConstraintsMatrix(A_con);
+    solver.data()->setLowerBound(lb);
+    solver.data()->setUpperBound(up);
     solver.data()->setHessianMatrix(P_sparse);
     solver.data()->setGradient(q);
     solver.initSolver();
