@@ -86,3 +86,9 @@ target_link_libraries(lane_keeping
     mpc_controller
 )
 
+add_executable(path_following
+    examples/path_following/main.cpp
+)
+target_link_libraries(path_following
+    mpc_controller
+)

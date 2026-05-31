@@ -6,6 +6,8 @@
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
+using Eigen::Vector2d;
+using Eigen::Vector4d;
 
 
 int main() {
@@ -16,33 +18,23 @@ int main() {
     BicycleModel model(wheelbase);
 
     MPCConfig config;
-    config.N = 30; // prediction horizon
-    config.dt = 0.1; // time step
-    config.Q = MatrixXd::Zero(4, 4);
-    config.Q(0,0) = 0.0;  // px — longitudinal tracking
-    config.Q(1,1) = 10.0;  // py — lane tracking
-    config.Q(2,2) = 50.0;  // psi — heading
-    config.Q(3,3) = 10.0;  // v — velocity
-    config.Qf = MatrixXd::Zero(4, 4);
-    config.Qf(0,0) = 20.0;  // px — longitudinal tracking
-    config.Qf(1,1) = 20.0;  // py — lane tracking
-    config.Qf(2,2) = 100.0;  // psi — heading
-    config.Qf(3,3) = 20.0;  // v — velocity
-    config.R = MatrixXd::Zero(2, 2);
-    config.R(0,0) = 1.0;   // delta
-    config.R(1,1) = 10.0; // a acceleration
-    config.u_min = (VectorXd(2) << -0.5, -3.0).finished();  // max steering angle, max acceleration
-    config.u_max = (VectorXd(2) << 0.5, 3.0).finished();    // min steering angle, min acceleration
-
-
+    config.N = 30;                                              // prediction horizon
+    config.dt = 0.1;                                            // time step
+    config.Q = Vector4d(0.0, 10.0, 50.0, 10.0).asDiagonal();    // [px, py, psi, v]
+    config.Qf = Vector4d(20.0, 20.0, 100.0, 20.0).asDiagonal(); // [px, py, psi, v]
+    config.R = Vector2d(1.0, 10.0).asDiagonal();                // [delta, a]
+    config.u_min = (VectorXd(2) << -0.5, -3.0).finished();      // max steering angle, max acceleration
+    config.u_max = (VectorXd(2) << 0.5, 3.0).finished();        // min steering angle, min acceleration
 
     MPCController mpc(model, config);
+
     // Initial state and reference trajectory
     VectorXd x0(4);
     x0 << 0, 0.9, 0, 5; // [px, py, psi, v]
 
     VectorXd x_ref(4);
     x_ref << 0.0, 1.0, 0.0, 5.0;
+    VectorXd x_ref_traj = x_ref.replicate(config.N, 1); // reference trajectory for N steps
 
     // Open CSV file for logging
     std::ofstream csv("output/trajectory.csv");
@@ -50,13 +42,13 @@ int main() {
         std::cerr << "Failed to open CSV file\n";
         return 1;
     }
-    csv << "t,px,py,psi,v,delta,a,solve_time\n";  // header
+    csv << "t,px,py,psi,v,delta,a,solve_time,x_ref_traj,py_ref,psi_ref,v_ref\n";  // header
 
 
     VectorXd x = x0;
     for(int t = 0; t < T; t++) {
         // Solve MPC problem
-        VectorXd u = mpc.solve(x, x_ref);
+        VectorXd u = mpc.solve(x, x_ref_traj);
 
         // Print state and input
         std::cout << std::fixed << std::setprecision(4)
@@ -70,7 +62,8 @@ int main() {
 
         // Log to CSV
         csv << t << "," << x(0) << "," << x(1) << "," << x(2) << "," << x(3)
-        << "," << u(0) << "," << u(1) << "," << mpc.get_solve_time() << "\n";
+        << "," << u(0) << "," << u(1) << "," << mpc.get_solve_time()
+        << "," << x_ref(0) << "," << x_ref(1) << "," << x_ref(2) << "," << x_ref(3) << "\n";
 
         // Propagate state
         x = x + config.dt * model.dynamics(x, u);
