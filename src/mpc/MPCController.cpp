@@ -60,7 +60,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
 
     // Build P and q
     MatrixXd P = Su.transpose() * Q_bar * Su + R_bar;
-    VectorXd q = Su.transpose() * Q_bar * (Sx * x0 - x_ref.replicate(N, 1));
+    VectorXd q = Su.transpose() * Q_bar * (Sx * x0 - x_ref);
 
     // Convert to sparse
     SparseMatrix<double> P_sparse = P.sparseView();

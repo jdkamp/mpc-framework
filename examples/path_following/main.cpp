@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <cmath>
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
@@ -11,42 +12,51 @@ using Eigen::Vector4d;
 
 
 int main() {
-    int T = 50; // simulation steps
+    int T = 500; // simulation steps
+    
+    // Path parameters
+    double A = 1.0; // amplitude
+    double lambda = 20.0; // wavelength
+    double v_ref = 5.0; // reference velocity
 
     // Create system model and MPC controller
-    double wheelbase = 2.;
+    double wheelbase = 2.7;
     BicycleModel model(wheelbase);
-
     MPCConfig config;
     config.N = 30;                                              // prediction horizon
     config.dt = 0.1;                                            // time step
     config.Q = Vector4d(0.0, 10.0, 50.0, 10.0).asDiagonal();    // [px, py, psi, v]
-    config.Qf = Vector4d(20.0, 20.0, 100.0, 20.0).asDiagonal(); // [px, py, psi, v]
+    config.Qf = Vector4d(0.0, 20.0, 100.0, 20.0).asDiagonal();  // [px, py, psi, v]
     config.R = Vector2d(1.0, 10.0).asDiagonal();                // [delta, a]
     config.u_min = (VectorXd(2) << -0.5, -3.0).finished();      // max steering angle, max acceleration
     config.u_max = (VectorXd(2) << 0.5, 3.0).finished();        // min steering angle, min acceleration
 
     MPCController mpc(model, config);
 
-    // Initial state and reference trajectory
+    // Initial state
     VectorXd x0(4);
-    x0 << 0, 0.9, 0, 5; // [px, py, psi, v]
+    x0 << 0, 0, 0, 0; // [px, py, psi, v]
+    VectorXd x = x0;
 
-    VectorXd x_ref(4);
-    x_ref << 0.0, 1.0, 0.0, 5.0;
-    VectorXd x_ref_traj = x_ref.replicate(config.N, 1); // reference trajectory for N steps
-
-    // Open CSV file for logging
+     // Open CSV file for logging
     std::ofstream csv("output/trajectory.csv");
     if (!csv.is_open()) {
         std::cerr << "Failed to open CSV file\n";
         return 1;
     }
-    csv << "t,px,py,psi,v,delta,a,solve_time,x_ref_traj,py_ref,psi_ref,v_ref\n";  // header
+    csv << "t,px,py,psi,v,delta,a,solve_time,px_ref,py_ref,psi_ref,v_ref\n";  // header
 
-
-    VectorXd x = x0;
     for(int t = 0; t < T; t++) {
+        // Reference state on the path
+        VectorXd x_ref_traj(4*config.N);
+        for (int k = 0; k < config.N; k++) {
+            double px_k = x(0) + (k+1) * v_ref * config.dt;
+            double py_k = A * std::sin(2 * M_PI * px_k / lambda);
+            double psi_k = std::atan2(2 * M_PI * A / lambda * std::cos(2 * M_PI * px_k / lambda), 1);
+            x_ref_traj.segment<4>(4*k) << px_k, py_k, psi_k, v_ref;
+        }
+        
+
         // Solve MPC problem
         VectorXd u = mpc.solve(x, x_ref_traj);
 
@@ -63,7 +73,7 @@ int main() {
         // Log to CSV
         csv << t << "," << x(0) << "," << x(1) << "," << x(2) << "," << x(3)
         << "," << u(0) << "," << u(1) << "," << mpc.get_solve_time()
-        << "," << x_ref(0) << "," << x_ref(1) << "," << x_ref(2) << "," << x_ref(3) << "\n";
+        << "," << x_ref_traj(0) << "," << x_ref_traj(1) << "," << x_ref_traj(2) << "," << x_ref_traj(3) << "\n";
 
         // Propagate state
         x = x + config.dt * model.dynamics(x, u);
@@ -71,7 +81,6 @@ int main() {
 
     csv.close();
 
-
-
     return 0;
 }
+

@@ -21,7 +21,7 @@ public:
     // Construct MPC controller with a system model and mpc config
     MPCController(SystemModel& model, MPCConfig config);
 
-    // Solve the MPC problem from state x0 tracking x_ref
+    // Solve the MPC problem from state x0 tracking x_ref(n*N) over prediction horizon N
     // Returns the first optimal control input [delta, a]
     Eigen::VectorXd solve(const Eigen::VectorXd& x0, const Eigen::VectorXd& x_ref);
     
