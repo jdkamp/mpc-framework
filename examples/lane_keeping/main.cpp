@@ -25,7 +25,9 @@ int main() {
     config.R = Vector2d(1.0, 10.0).asDiagonal();                // [delta, a]
     config.u_min = (VectorXd(2) << -0.5, -3.0).finished();      // max steering angle, max acceleration
     config.u_max = (VectorXd(2) << 0.5, 3.0).finished();        // min steering angle, min acceleration
-
+    config.x_min = (VectorXd(4) << -1e10, 0.0, -1e10, -1e10).finished(); // min state
+    config.x_max = (VectorXd(4) << 1e10,  2.0,  1e10,  1e10).finished(); // max state
+    
     MPCController mpc(model, config);
 
     // Initial state and reference trajectory
@@ -42,7 +44,7 @@ int main() {
         std::cerr << "Failed to open CSV file\n";
         return 1;
     }
-    csv << "t,px,py,psi,v,delta,a,solve_time,x_ref_traj,py_ref,psi_ref,v_ref\n";  // header
+    csv << "t,px,py,psi,v,delta,a,solve_time,px_ref,py_ref,psi_ref,v_ref\n";  // header
 
 
     VectorXd x = x0;

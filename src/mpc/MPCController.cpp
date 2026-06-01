@@ -10,7 +10,8 @@ using Eigen::SparseMatrix;
 MPCController::MPCController(SystemModel& model, MPCConfig config) : model_(model), config_(config), solve_time_(0.0){ }
 
 MatrixXd MPCController::get_predicted_trajectory() const {
-    return predicted_trajectory_;
+    return Eigen::Map<const Eigen::MatrixXd>(predicted_trajectory_.data(),                  // Map the predicted trajectory to a matrix of shape (N, state_dim)
+                                             model_.state_dim(), config_.N).transpose();
 }
 
 double MPCController::get_solve_time() const {
@@ -66,21 +67,25 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     SparseMatrix<double> P_sparse = P.sparseView();
 
     // Input constraints
-    VectorXd lb = config_.u_min.replicate(N, 1);
-    VectorXd up = config_.u_max.replicate(N, 1);
+    VectorXd lb(m*N + n*N), ub(m*N + n*N);
+    lb << config_.u_min.replicate(N, 1), config_.x_min.replicate(N, 1) - Sx * x0;
+    ub << config_.u_max.replicate(N, 1), config_.x_max.replicate(N, 1) - Sx * x0;
+
 
     // State constraints
-    SparseMatrix<double> A_con = MatrixXd::Identity(m*N, m*N).sparseView();
+    MatrixXd A_con_dense(m*N + n*N, m*N);
+    A_con_dense << MatrixXd::Identity(m*N, m*N), Su;
+    SparseMatrix<double> A_con = A_con_dense.sparseView();
 
     auto t_start = std::chrono::high_resolution_clock::now();   // Start timer
     // Setup solver
     OsqpEigen::Solver solver;
     solver.settings()->setVerbosity(false);
     solver.data()->setNumberOfVariables(m * N);
-    solver.data()->setNumberOfConstraints(m * N);
+    solver.data()->setNumberOfConstraints(m*N + n*N);
     solver.data()->setLinearConstraintsMatrix(A_con);
     solver.data()->setLowerBound(lb);
-    solver.data()->setUpperBound(up);
+    solver.data()->setUpperBound(ub);
     solver.data()->setHessianMatrix(P_sparse);
     solver.data()->setGradient(q);
     solver.initSolver();
