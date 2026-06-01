@@ -9,12 +9,15 @@ struct MPCConfig {
     int N;              // Prediction horizon 
     double dt;          // time step [s]
     Eigen::MatrixXd Q;  // Q weights
-    Eigen::MatrixXd R;  // R weights
     Eigen::MatrixXd Qf; // terminal cost weight
+    Eigen::MatrixXd R;  // R weights
+    Eigen::MatrixXd S;  // S weights for delta_u (control input change)
     Eigen::VectorXd u_min; // minimum control input
     Eigen::VectorXd u_max; // maximum control input
     Eigen::VectorXd x_min; // minimum state
     Eigen::VectorXd x_max; // maximum state
+    Eigen::VectorXd delta_u_min; // minimum change in control input
+    Eigen::VectorXd delta_u_max; // maximum change in control input
 
 };
 
@@ -38,6 +41,7 @@ private:
     MPCConfig config_;
     Eigen::MatrixXd predicted_trajectory_;
     double solve_time_;
+    Eigen::VectorXd previous_u_; // for delta_u constraints
 };
 
 #endif // MPC_MPC_CONTROLLER_HPP
