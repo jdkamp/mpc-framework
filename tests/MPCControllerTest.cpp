@@ -4,6 +4,7 @@
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
+using Eigen::Vector2d;
 
 class MPCControllerTest : public ::testing::Test {
 protected:
@@ -23,10 +24,13 @@ protected:
         config.R = MatrixXd::Zero(2, 2);
         config.R(0,0) = 1.0;   // delta
         config.R(1,1) = 10.0; // a acceleration
+        config.S = MatrixXd::Zero(2, 2);  // no rate cost by default
         config.u_min = (VectorXd(2) << -1e10, -1e10).finished();  // no constraints
         config.u_max = (VectorXd(2) << 1e10, 1e10).finished();  // no constraints
         config.x_min = (VectorXd(4) << -1e10, -1e10, -1e10, -1e10).finished();  // no constraints
         config.x_max = (VectorXd(4) << 1e10, 1e10, 1e10, 1e10).finished();  // no constraints
+        config.delta_u_min = (VectorXd(2) << -1e10, -1e10).finished();  // no constraints
+        config.delta_u_max = (VectorXd(2) << 1e10, 1e10).finished();  // no constraints
     }
 };
 
@@ -46,6 +50,8 @@ TEST_F(MPCControllerTest, NoControlDeviation) {
 TEST_F(MPCControllerTest, PxControlDeviation) {
     VectorXd x0(4);
     VectorXd x_ref(4);
+
+    // Test positive px deviation
     x0 << 0, 0, 0, 5;  // px, py, psi, vel
     x_ref << 100, 0, 0, 5 ;  // px, py, psi, vel
 
@@ -54,6 +60,7 @@ TEST_F(MPCControllerTest, PxControlDeviation) {
 
     EXPECT_GT(u(1), 0);  // u(1) > 0
 
+    // Test negative px deviation
     x0 << 0, 0, 0, 0;  // px, py, psi, vel
     x_ref << -100, 0, 0, 0;  // px, py, psi, vel
 
@@ -65,12 +72,15 @@ TEST_F(MPCControllerTest, PxControlDeviation) {
 TEST_F(MPCControllerTest, PyControlDeviation) {
     VectorXd x0(4);
     VectorXd x_ref(4);
+
+    // Test positive py deviation
     x0 << 0, 0, 0, 5;  // px, py, psi, vel
     x_ref << 0, 1, 0, 5;  // px, py, psi, vel
 
     MPCController mpc(model, config);
     VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
 
+    // Test negative py deviation
     EXPECT_GT(u(0), 0);  // u(0) > 0
 
     x0 << 0, 0, 0, 5;  // px, py, psi, vel
@@ -84,6 +94,8 @@ TEST_F(MPCControllerTest, PyControlDeviation) {
 TEST_F(MPCControllerTest, PsiControlDeviation) {
     VectorXd x0(4);
     VectorXd x_ref(4);
+
+    // Test positive psi deviation
     x0 << 0, 0, 0, 5;  // px, py, psi, vel
     x_ref << 0, 0, 1, 5;  // px, py, psi, vel
 
@@ -92,6 +104,7 @@ TEST_F(MPCControllerTest, PsiControlDeviation) {
 
     EXPECT_GT(u(0), 0);  // u(0) > 0
 
+    // Test negative psi deviation
     x0 << 0, 0, 0, 5;  // px, py, psi, vel
     x_ref << 0, 0, -1, 5;  // px, py, psi, vel
 
@@ -103,6 +116,8 @@ TEST_F(MPCControllerTest, PsiControlDeviation) {
 TEST_F(MPCControllerTest, VelControlDeviation) {
     VectorXd x0(4);
     VectorXd x_ref(4);
+
+    // Test positive velocity deviation
     x0 << 0, 0, 0, 0;  // px, py, psi, vel
     x_ref << 0, 0, 0, 1;  // px, py, psi, vel
 
@@ -111,6 +126,7 @@ TEST_F(MPCControllerTest, VelControlDeviation) {
 
     EXPECT_GT(u(1), 0);  // u(1) > 0
 
+    // Test negative velocity deviation
     x0 << 0, 0, 0, 0;  // px, py, psi, vel
     x_ref << 0, 0, 0, -1;  // px, py, psi, vel
 
@@ -125,12 +141,14 @@ TEST_F(MPCControllerTest, InputConstraints) {
     x0 << 0, 0, 0, 5;  // px, py, psi, vel
     x_ref << 100, 100, 100, 100;  // px, py, psi, vel
 
-    MPCController mpc(model, config);
-    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
+    // Without input constraints, verify unconstrained input is large enough to matter
+    MPCController mpc_free(model, config);
+    VectorXd u = mpc_free.solve(x0,  x_ref.replicate(config.N, 1));
 
     EXPECT_GE(u(0), 0.1);  // u(0) >= u_min(0)
     EXPECT_GE(u(1), 0.5);  // u(1) >= u_min(1)
 
+    // With input constraints
     config.u_min = (VectorXd(2) << -0.1, -0.5).finished();  // max steering angle, max acceleration
     config.u_max = (VectorXd(2) << 0.1, 0.5).finished();  // min steering angle, min acceleration
 
@@ -139,6 +157,43 @@ TEST_F(MPCControllerTest, InputConstraints) {
 
     EXPECT_LE(u(0), config.u_max(0) + 1e-3);  // u(0) <= u_max(0) + small tolerance
     EXPECT_LE(u(1), config.u_max(1) + 1e-3);  // u(1) <= u_max(1) + small tolerance
+}
+
+TEST_F(MPCControllerTest, RateConstraints) {
+    VectorXd x0(4); x0 << 0, 0, 0, 5;
+    VectorXd x_ref(4); x_ref << 0, 1, 1, 5;
+
+    // Without rate constraints, verify unconstrained input is large enough to matter
+    MPCController mpc_free(model, config);
+    VectorXd u_free = mpc_free.solve(x0, x_ref.replicate(config.N, 1));
+    EXPECT_GT(std::abs(u_free(0)), 0.05);
+
+    // With tight rate constraints
+    config.delta_u_min = (VectorXd(2) << -0.05, -0.5).finished();
+    config.delta_u_max = (VectorXd(2) <<  0.05,  0.5).finished();
+    MPCController mpc_con(model, config);
+    VectorXd u_con = mpc_con.solve(x0, x_ref.replicate(config.N, 1));
+    EXPECT_LE(u_con(0),  0.05 + 1e-3);
+    EXPECT_GE(u_con(0), -0.05 - 1e-3);
+    EXPECT_LE(u_con(1),  0.5 + 1e-3);
+    EXPECT_GE(u_con(1), -0.5 - 1e-3);
+}
+
+TEST_F(MPCControllerTest, RateCost) {
+    VectorXd x0(4); x0 << 0, 0, 0, 5;
+    VectorXd x_ref(4); x_ref << 0, 1, 1, 5;
+
+    // Without rate cost — u_prev=0, so first du = u
+    MPCController mpc_free(model, config);
+    VectorXd u_free = mpc_free.solve(x0, x_ref.replicate(config.N, 1));
+
+    // With high rate cost — first input should be smaller (smoother)
+    config.S = Vector2d(100.0, 100.0).asDiagonal();
+    MPCController mpc_smooth(model, config);
+    VectorXd u_smooth = mpc_smooth.solve(x0, x_ref.replicate(config.N, 1));
+
+    EXPECT_LT(std::abs(u_smooth(0)), std::abs(u_free(0)));
+    EXPECT_LT(std::abs(u_smooth(1)), std::abs(u_free(1)));
 }
 
 TEST_F(MPCControllerTest, StateConstraints) {

@@ -28,8 +28,13 @@ int main() {
     config.Q = Vector4d(0.0, 10.0, 50.0, 10.0).asDiagonal();    // [px, py, psi, v]
     config.Qf = Vector4d(0.0, 20.0, 100.0, 20.0).asDiagonal();  // [px, py, psi, v]
     config.R = Vector2d(1.0, 10.0).asDiagonal();                // [delta, a]
+    config.S = Vector2d(10.0, 10.0).asDiagonal();             // [delta change rate, acceleration change rate]
     config.u_min = (VectorXd(2) << -0.5, -3.0).finished();      // max steering angle, max acceleration
     config.u_max = (VectorXd(2) << 0.5, 3.0).finished();        // min steering angle, min acceleration
+    config.x_min = (VectorXd(4) << -1e10, -1e10, -1e10, -1e10).finished(); // min state
+    config.x_max = (VectorXd(4) << 1e10,  1e10,  1e10,  1e10).finished(); // max state
+    config.delta_u_min = (VectorXd(2) << -0.15, -1.0).finished();  // no constraints
+    config.delta_u_max = (VectorXd(2) << 0.15, 1.0).finished();  // no constraints
 
     MPCController mpc(model, config);
 
@@ -44,8 +49,9 @@ int main() {
         std::cerr << "Failed to open CSV file\n";
         return 1;
     }
-    csv << "t,px,py,psi,v,delta,a,solve_time,px_ref,py_ref,psi_ref,v_ref\n";  // header
+    csv << "t,px,py,psi,v,delta,a,solve_time,px_ref,py_ref,psi_ref,v_ref,ddelta,da\n";  // header
 
+    VectorXd u_prev = VectorXd::Zero(2);
     for(int t = 0; t < T; t++) {
         // Reference state on the path
         VectorXd x_ref_traj(4*config.N);
@@ -59,6 +65,7 @@ int main() {
 
         // Solve MPC problem
         VectorXd u = mpc.solve(x, x_ref_traj);
+        VectorXd du = u - u_prev;
 
         // Print state and input
         std::cout << std::fixed << std::setprecision(4)
@@ -68,12 +75,17 @@ int main() {
         std::cout << " u=";
         for (int i = 0; i < u.size(); i++)
             std::cout << std::setw(9) << u(i);
+        std::cout << " du=";
+        for (int i = 0; i < u.size(); i++) 
+            std::cout << std::setw(9) << du(i);
         std::cout << " time=" << std::setprecision(6) << mpc.get_solve_time() << "\n";
 
         // Log to CSV
         csv << t << "," << x(0) << "," << x(1) << "," << x(2) << "," << x(3)
         << "," << u(0) << "," << u(1) << "," << mpc.get_solve_time()
-        << "," << x_ref_traj(0) << "," << x_ref_traj(1) << "," << x_ref_traj(2) << "," << x_ref_traj(3) << "\n";
+        << "," << x_ref_traj(0) << "," << x_ref_traj(1) << "," << x_ref_traj(2) << "," << x_ref_traj(3)
+        << "," << du(0) << "," << du(1) << "\n";
+        u_prev = u;
 
         // Propagate state
         x = x + config.dt * model.dynamics(x, u);
