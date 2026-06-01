@@ -13,6 +13,9 @@ struct MPCConfig {
     Eigen::MatrixXd Qf; // terminal cost weight
     Eigen::VectorXd u_min; // minimum control input
     Eigen::VectorXd u_max; // maximum control input
+    Eigen::VectorXd x_min; // minimum state
+    Eigen::VectorXd x_max; // maximum state
+
 };
 
 // MPC controller - solves a QP at each time step using a linearized system model
