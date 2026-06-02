@@ -18,20 +18,22 @@ int main() {
     BicycleModel model(wheelbase);
 
     MPCConfig config;
+    MPCWeights weights(model);
+    MPCLimits limits(model);
     config.N = 30;                                              // prediction horizon
     config.dt = 0.1;                                            // time step
-    config.Q = Vector4d(0.0, 10.0, 50.0, 10.0).asDiagonal();    // [px, py, psi, v]
-    config.Qf = Vector4d(20.0, 20.0, 100.0, 20.0).asDiagonal(); // [px, py, psi, v]
-    config.R = Vector2d(1.0, 10.0).asDiagonal();                // [delta, a]
-    config.S = Vector2d(10.0, 10.0).asDiagonal();             // [delta change rate, acceleration change rate]
-    config.u_min = (VectorXd(2) << -0.5, -3.0).finished();      // max steering angle, max acceleration
-    config.u_max = (VectorXd(2) << 0.5, 3.0).finished();        // min steering angle, min acceleration
-    config.x_min = (VectorXd(4) << -1e10, 0.0, -1e10, -1e10).finished(); // min state
-    config.x_max = (VectorXd(4) << 1e10,  2.0,  1e10,  1e10).finished(); // max state
-    config.delta_u_min = (VectorXd(2) << -1e10, -1e10).finished();  // no constraints
-    config.delta_u_max = (VectorXd(2) << 1e10, 1e10).finished();  // no constraints
+    weights.Q = Vector4d(0.0, 10.0, 50.0, 10.0).asDiagonal();    // [px, py, psi, v]
+    weights.Qf = Vector4d(20.0, 20.0, 100.0, 20.0).asDiagonal(); // [px, py, psi, v]
+    weights.R = Vector2d(1.0, 10.0).asDiagonal();                // [delta, a]
+    weights.S = Vector2d(10.0, 10.0).asDiagonal();             // [delta change rate, acceleration change rate]
+    limits.u_min = (VectorXd(2) << -0.5, -3.0).finished();      // max steering angle, max acceleration
+    limits.u_max = (VectorXd(2) << 0.5, 3.0).finished();        // min steering angle, min acceleration
+    limits.x_min = (VectorXd(4) << -1e10, 0.0, -1e10, -1e10).finished(); // min state
+    limits.x_max = (VectorXd(4) << 1e10,  2.0,  1e10,  1e10).finished(); // max state
+    limits.delta_u_min = (VectorXd(2) << -1e10, -1e10).finished();  // no constraints
+    limits.delta_u_max = (VectorXd(2) << 1e10, 1e10).finished();  // no constraints
     
-    MPCController mpc(model, config);
+    MPCController mpc(model, config, weights, limits);
 
     // Initial state and reference trajectory
     VectorXd x0(4);

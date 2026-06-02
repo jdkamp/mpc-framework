@@ -7,9 +7,11 @@ using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using Eigen::SparseMatrix;
 
-MPCController::MPCController(SystemModel& model, MPCConfig config) : 
+MPCController::MPCController(const SystemModel& model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits) : 
     model_(model), 
     config_(config), 
+    weights_(weights),
+    limits_(limits),
     solve_time_(0.0),
     previous_u_(VectorXd::Zero(model.input_dim())) { }
 
@@ -74,15 +76,15 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     MatrixXd R_bar = MatrixXd::Zero(m*N, m*N);
 
     for (int i = 0; i < N; i++) {
-        Q_bar.block(i*n, i*n, n, n) = config_.Q;
-        R_bar.block(i*m, i*m, m, m) = config_.R;
+        Q_bar.block(i*n, i*n, n, n) = weights_.Q;
+        R_bar.block(i*m, i*m, m, m) = weights_.R;
     }
-    Q_bar.block((N-1)*n, (N-1)*n, n, n) = config_.Qf; // terminal cost
+    Q_bar.block((N-1)*n, (N-1)*n, n, n) = weights_.Qf; // terminal cost
 
     // Build S_bar
     MatrixXd S_bar = MatrixXd::Zero(m*N, m*N);
     for (int i = 0; i < N; i++)
-        S_bar.block(i*m, i*m, m, m) = config_.S;
+        S_bar.block(i*m, i*m, m, m) = weights_.S;
 
 
     // Build P and q
@@ -99,8 +101,8 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // upper and lower bounds
     VectorXd lb(m*N + n*N + m*N);
     VectorXd ub(m*N + n*N + m*N);
-    lb << config_.u_min.replicate(N,1), config_.x_min.replicate(N,1) - Sx*x0, config_.delta_u_min.replicate(N,1) + d_prev;
-    ub << config_.u_max.replicate(N,1), config_.x_max.replicate(N,1) - Sx*x0, config_.delta_u_max.replicate(N,1) + d_prev;
+    lb << limits_.u_min.replicate(N,1), limits_.x_min.replicate(N,1) - Sx*x0, limits_.delta_u_min.replicate(N,1) + d_prev;
+    ub << limits_.u_max.replicate(N,1), limits_.x_max.replicate(N,1) - Sx*x0, limits_.delta_u_max.replicate(N,1) + d_prev;
 
 
     // Constraint matrix: [input bounds; state bounds; rate bounds]
