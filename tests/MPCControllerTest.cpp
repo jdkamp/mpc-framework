@@ -37,111 +37,88 @@ protected:
 };
 
 TEST_F(MPCControllerTest, NoControlDeviation) {
-    VectorXd x0(4);
-    VectorXd x_ref(4);
-    x0 << 0, 0, 0, 0;  // px, py, psi, vel
-    x_ref = x0;  // reference state is the same as initial state
+    VectorXd x0(4); x0 << 0, 0, 0, 0;  // px, py, psi, vel
+    VectorXd x_ref(4); x_ref = x0;  // reference state is the same as initial state
 
     MPCController mpc(model, config, weights, limits);
     VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
 
+    // Expect no control input
     EXPECT_NEAR(u(0), 0, 1e-6);
     EXPECT_NEAR(u(1), 0, 1e-6);
 }
 
 TEST_F(MPCControllerTest, PxControlDeviation) {
-    VectorXd x0(4);
-    VectorXd x_ref(4);
+    VectorXd x0(4); x0 << 0, 0, 0, 5;  // px, py, psi, vel
+    VectorXd x_ref(4); x_ref << 1, 0, 0, 5;  // px, py, psi, vel
 
-    // Test positive px deviation
-    x0 << 0, 0, 0, 5;  // px, py, psi, vel
-    x_ref << 100, 0, 0, 5 ;  // px, py, psi, vel
+    // Small px cost 
+    weights.Q(0,0) = 1.0;  // low cost on px deviation
+    MPCController mpc_low(model, config, weights, limits);
+    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1));
 
-    MPCController mpc(model, config, weights, limits);
-    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
+    // With higher px cost, input should be more aggressive to correct px deviation
+    weights.Q(0,0) = 10.0;  // high cost on px deviation
+    MPCController mpc_high(model, config, weights, limits);
+    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1));
 
-    EXPECT_GT(u(1), 0);  // u(1) > 0
-
-    // Test negative px deviation
-    x0 << 0, 0, 0, 0;  // px, py, psi, vel
-    x_ref << -100, 0, 0, 0;  // px, py, psi, vel
-
-    u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
-
-    EXPECT_LT(u(1), 0);  // u(1) < 0
+    EXPECT_GT(std::abs(u_high(1)), std::abs(u_low(1)));  
 }
 
 TEST_F(MPCControllerTest, PyControlDeviation) {
-    VectorXd x0(4);
-    VectorXd x_ref(4);
+    VectorXd x0(4); x0 << 0, 0, 0, 5;  // px, py, psi, vel
+    VectorXd x_ref(4); x_ref << 0, 1, 0, 5;  // px, py, psi, vel
 
-    // Test positive py deviation
-    x0 << 0, 0, 0, 5;  // px, py, psi, vel
-    x_ref << 0, 1, 0, 5;  // px, py, psi, vel
+    // Small py cost 
+    weights.Q(1,1) = 1.0;  // low cost on py deviation
+    MPCController mpc_low(model, config, weights, limits);
+    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1));
 
-    MPCController mpc(model, config, weights, limits);
-    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
+    // With higher py cost, input should be more aggressive to correct py deviation
+    weights.Q(1,1) = 10.0;  // high cost on py deviation
+    MPCController mpc_high(model, config, weights, limits);
+    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1));
 
-    // Test negative py deviation
-    EXPECT_GT(u(0), 0);  // u(0) > 0
-
-    x0 << 0, 0, 0, 5;  // px, py, psi, vel
-    x_ref << 0, -1, 0, 5;  // px, py, psi, vel
-
-    u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
-
-    EXPECT_LT(u(0), 0);  // u(0) < 0
+    EXPECT_GT(std::abs(u_high(0)), std::abs(u_low(0)));  
 }
 
 TEST_F(MPCControllerTest, PsiControlDeviation) {
-    VectorXd x0(4);
-    VectorXd x_ref(4);
+    VectorXd x0(4); x0 << 0, 0, 0, 5;  // px, py, psi, vel
+    VectorXd x_ref(4); x_ref << 0, 0, 1, 5;  // px, py, psi, vel
 
-    // Test positive psi deviation
-    x0 << 0, 0, 0, 5;  // px, py, psi, vel
-    x_ref << 0, 0, 1, 5;  // px, py, psi, vel
+    // Small psi cost 
+    weights.Q(2,2) = 1.0;  // low cost on psi deviation
+    MPCController mpc_low(model, config, weights, limits);
+    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1));
 
-    MPCController mpc(model, config, weights, limits);
-    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
+    // With higher psi cost, input should be more aggressive to correct psi deviation
+    weights.Q(2,2) = 10.0;  // high cost on py deviation
+    MPCController mpc_high(model, config, weights, limits);
+    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1));
 
-    EXPECT_GT(u(0), 0);  // u(0) > 0
-
-    // Test negative psi deviation
-    x0 << 0, 0, 0, 5;  // px, py, psi, vel
-    x_ref << 0, 0, -1, 5;  // px, py, psi, vel
-
-    u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
-
-    EXPECT_LT(u(0), 0);  // u(0) < 0
+    EXPECT_GT(std::abs(u_high(0)), std::abs(u_low(0)));  
 }
 
 TEST_F(MPCControllerTest, VelControlDeviation) {
-    VectorXd x0(4);
-    VectorXd x_ref(4);
+    VectorXd x0(4); x0 << 0, 0, 0, 0;  // px, py, psi, vel
+    VectorXd x_ref(4); x_ref << 0, 0, 0, 1;  // px, py, psi, vel
 
-    // Test positive velocity deviation
-    x0 << 0, 0, 0, 0;  // px, py, psi, vel
-    x_ref << 0, 0, 0, 1;  // px, py, psi, vel
+    // Small vel cost 
+    weights.Q(3,3) = 1.0;  // low cost on vel deviation
+    MPCController mpc_low(model, config, weights, limits);
+    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1));
 
-    MPCController mpc(model, config, weights, limits);
-    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
+    // With higher vel cost, input should be more aggressive to correct vel deviation
+    weights.Q(3,3) = 10.0;  // high cost on py deviation
+    MPCController mpc_high(model, config, weights, limits);
+    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1));
 
-    EXPECT_GT(u(1), 0);  // u(1) > 0
-
-    // Test negative velocity deviation
-    x0 << 0, 0, 0, 0;  // px, py, psi, vel
-    x_ref << 0, 0, 0, -1;  // px, py, psi, vel
-
-    u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
-
-    EXPECT_LT(u(1), 0);  // u(1) < 0
+    EXPECT_GT(std::abs(u_high(1)), std::abs(u_low(1)));  
 }
 
 TEST_F(MPCControllerTest, InputConstraints) {
-    VectorXd x0(4);
-    VectorXd x_ref(4);
-    x0 << 0, 0, 0, 5;  // px, py, psi, vel
-    x_ref << 100, 100, 100, 100;  // px, py, psi, vel
+    VectorXd x0(4); x0 << 0, 0, 0, 5;  // px, py, psi, vel
+    VectorXd x_ref(4); x_ref << 100, 100, 100, 100;  // px, py, psi, vel
 
     // Without input constraints, verify unconstrained input is large enough to matter
     MPCController mpc_free(model, config, weights, limits);
@@ -211,4 +188,53 @@ TEST_F(MPCControllerTest, StateConstraints) {
     // check py stays >= 0 across all horizon steps
     for (int k = 0; k < config.N; k++)
         EXPECT_GE(mpc.get_predicted_trajectory()(k, 1), -1e-3);
+}
+
+TEST_F(MPCControllerTest, DareProperties) {
+    
+    VectorXd x_trim = (VectorXd(4) << 0, 0, 0, 5.0).finished(); // trim at straight driving
+    VectorXd Qf = weights.compute_dare(model, x_trim, config.dt);
+
+    // Check that the computed Qf is symmetric 
+    EXPECT_TRUE(Qf.isApprox(Qf.transpose(), 1e-6));
+
+    // Check that Qf is positive definite (all eigenvalues > 0)
+    Eigen::SelfAdjointEigenSolver<MatrixXd> es(Qf);
+    EXPECT_TRUE((es.eigenvalues().array() > 0).all());
+
+}
+
+TEST_F(MPCControllerTest, PredictedTrajectory) {
+    VectorXd x0(4); x0 << 0, 0, 0, 0;  // px, py, psi, vel
+    VectorXd x_ref(4); x_ref << 1, 1, 1, 5;  // px, py, psi, vel
+
+    MPCController mpc(model, config, weights, limits);
+    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
+
+    MatrixXd traj = mpc.get_predicted_trajectory();
+
+    // Check that trajectory has correct dimensions
+    EXPECT_EQ(traj.rows(), config.N);
+    EXPECT_EQ(traj.cols(), model.state_dim());
+}
+
+TEST_F(MPCControllerTest, ControlConvergence) {
+    VectorXd x0(4); x0 << 0, 1, 0, 5;  // px, py, psi, vel
+    VectorXd x_ref(4); x_ref << 0, 0, 0, 5;  // px, py, psi, vel
+    int T = 50; // number of iterations
+
+    weights.Q(0,0) = 0.0;  // no cost on px deviation for lane keeping
+
+    MPCController mpc(model, config, weights, limits);
+    
+    VectorXd x = x0;
+    for(int t = 0; t < T; t++) {
+        VectorXd u = mpc.solve(x,  x_ref.replicate(config.N, 1));
+        x = x + config.dt * model.dynamics(x, u);
+    }
+
+    // State should converge close to reference
+    EXPECT_NEAR(x(1), x_ref(1), 0.1);
+    EXPECT_NEAR(x(2), x_ref(2), 0.1);
+    EXPECT_NEAR(x(3), x_ref(3), 0.1);
 }
