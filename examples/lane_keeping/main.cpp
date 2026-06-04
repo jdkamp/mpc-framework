@@ -23,7 +23,8 @@ int main() {
     config.N = 30;                                              // prediction horizon
     config.dt = 0.1;                                            // time step
     weights.Q = Vector4d(0.0, 10.0, 50.0, 10.0).asDiagonal();    // [px, py, psi, v]
-    weights.Qf = Vector4d(20.0, 20.0, 100.0, 20.0).asDiagonal(); // [px, py, psi, v]
+    VectorXd x_trim = (VectorXd(4) << 0, 0, 0, 5.0).finished(); // trim at straight driving, v=5
+    weights.Qf = weights.compute_dare(model, x_trim, config.dt);
     weights.R = Vector2d(1.0, 10.0).asDiagonal();                // [delta, a]
     weights.S = Vector2d(10.0, 10.0).asDiagonal();             // [delta change rate, acceleration change rate]
     limits.u_min = (VectorXd(2) << -0.5, -3.0).finished();      // max steering angle, max acceleration

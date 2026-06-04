@@ -23,6 +23,39 @@ struct MPCWeights {
         R(Eigen::MatrixXd::Identity(model.input_dim(), model.input_dim())),
         S(Eigen::MatrixXd::Zero(model.input_dim(), model.input_dim()))
     {}
+
+    // Compute optimal terminal cost Qf via DARE using the current Q and R
+    Eigen::MatrixXd compute_dare(
+        const SystemModel& model,
+        const Eigen::VectorXd& x_trim, 
+        const Eigen::VectorXd& u_trim,
+        double dt,
+        int max_iter = 1000, 
+        double tol = 1e-8) const
+    {
+        int n = model.state_dim();
+        Eigen::MatrixXd A_d = Eigen::MatrixXd::Identity(n, n) + dt * model.jacobian_x(x_trim, u_trim);
+        Eigen::MatrixXd B_d = dt * model.jacobian_u(x_trim, u_trim);
+        Eigen::MatrixXd P = Q;
+        for (int i = 0; i < max_iter; i++) {
+            Eigen::MatrixXd M = R + B_d.transpose() * P * B_d;
+            Eigen::MatrixXd S = M.inverse();
+            Eigen::MatrixXd P_new = Q + A_d.transpose() * P * A_d
+                - A_d.transpose() * P * B_d * S * B_d.transpose() * P * A_d;
+            if ((P_new - P).norm() < tol) return P_new;
+            P = P_new;
+        }
+        return P;
+    }
+        Eigen::MatrixXd compute_dare(
+        const SystemModel& model,
+        const Eigen::VectorXd& x_trim,
+        double dt,
+        int max_iter = 1000, 
+        double tol = 1e-8) const
+    {
+        return compute_dare(model, x_trim, Eigen::VectorXd::Zero(model.input_dim()), dt);
+    }
 };
 
 struct MPCLimits {
