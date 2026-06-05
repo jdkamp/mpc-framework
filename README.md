@@ -2,15 +2,19 @@
 
 A generic Model Predictive Control (MPC) framework in C++17. The controller is decoupled from any specific system model via a `SystemModel` interface — plug in any linearizable model and the controller handles the rest.
 
+## Motivation
+
+Classical MPC assumes a known, exact model. Real systems have unmodeled dynamics, parameter uncertainty, and disturbances that no hand-tuned noise matrix fully captures. This framework is built to be model-agnostic: the `SystemModel` interface is designed so that a physics-based model and a learned model (Gaussian Process, neural network) are interchangeable without changing the controller. The goal is to bridge standard SMPC formulations with data-driven uncertainty estimation — replacing assumed noise covariance with uncertainty learned from data.
+
 ## Features
 
 - Generic `SystemModel` interface — implement once, reuse the controller unchanged
 - Linearization-based MPC with Euler discretization at each step
-- Quadratic cost with optional terminal weight
-- Input constraints
+- Quadratic cost with state weights (Q), input weights (R), rate weights (S), and DARE-computed terminal weight (Qf)
+- Input constraints, state constraints, and control rate constraints
 - Predicted trajectory output from each solve
 - Kinematic bicycle model as reference implementation
-- Lane-keeping example
+- Lane-keeping and path-following examples
 - Unit tests with Google Test
 
 ## Architecture
@@ -20,10 +24,17 @@ SystemModel (abstract interface)
     └── BicycleModel (kinematic, state: [px, py, ψ, v], input: [δ, a])
 
 MPCController
-    ├── takes SystemModel& and MPCConfig
+    ├── takes SystemModel&, MPCConfig, MPCWeights, MPCLimits
     ├── linearizes model at each step → A, B matrices
     ├── builds lifted QP (Sx, Su, Q_bar, R_bar)
     └── solves via OSQP
+
+MPCWeights
+    ├── Q, R, S — state, input, and control rate cost matrices
+    └── Qf — terminal cost, optionally computed via DARE
+
+MPCLimits
+    └── input, state, and control rate bounds
 ```
 
 To use a different system, implement `SystemModel` and pass it to `MPCController` — no controller code changes needed.
@@ -49,14 +60,22 @@ cmake -S . -B build
 cmake --build build
 ```
 
-## Run the lane-keeping example
+## Run the examples
+
+**Lane-keeping:** tracks a constant lateral reference at 5 m/s.
 
 ```bash
 mkdir -p output
 ./build/lane_keeping
 ```
 
-Runs a 50-step simulation of a vehicle tracking a lane at 5 m/s with a lateral offset, and writes `output/trajectory.csv`.
+**Path-following:** tracks a sinusoidal path at 5 m/s.
+
+```bash
+./build/path_following
+```
+
+Both write `output/trajectory.csv`.
 
 Visualize with Python:
 
@@ -108,6 +127,7 @@ src/
     mpc/MPCController.cpp
 examples/
     lane_keeping/main.cpp
+    path_following/main.cpp
 tests/
     BicycleModelTest.cpp
     MPCControllerTest.cpp
