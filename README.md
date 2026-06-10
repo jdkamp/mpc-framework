@@ -86,6 +86,17 @@ pip install pandas matplotlib
 python3 scripts/visualize_trajectory.py
 ```
 
+**GP training:** learns residual uncertainty from data, exports `data/gp_params.json`, and saves the mean/variance surface plot to `output/gp_surfaces.png`.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install scikit-learn pandas matplotlib numpy
+mkdir -p data output
+python3 scripts/generate_gp_training_data.py
+python3 scripts/gp_training_data.py
+```
+
 ## Run tests
 
 ```bash

@@ -3,6 +3,8 @@ project(mpc_framework)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 
 include(FetchContent)
 
@@ -36,6 +38,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(osqp-eigen)
 
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.11.3
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
+
 
 
 
@@ -66,14 +76,31 @@ target_link_libraries(mpc_controller PUBLIC
     OsqpEigen::OsqpEigen
 )
 
+add_library(gp_residual_model
+    src/models/GPResidualModel.cpp
+)
+target_include_directories(gp_residual_model PUBLIC
+    include
+)
+target_link_libraries(gp_residual_model PUBLIC
+    bicycle_model
+    Eigen3::Eigen
+    nlohmann_json::nlohmann_json
+)
+
 add_executable(tests
     tests/BicycleModelTest.cpp
     tests/MPCControllerTest.cpp
+    tests/GPResidualModelTest.cpp
 )
 target_link_libraries(tests
     bicycle_model
     mpc_controller
+    gp_residual_model
     GTest::gtest_main
+)
+target_compile_definitions(tests PRIVATE
+    GP_PARAMS_PATH="${CMAKE_SOURCE_DIR}/data/gp_params.json"
 )
 include(GoogleTest)
 gtest_discover_tests(tests)
