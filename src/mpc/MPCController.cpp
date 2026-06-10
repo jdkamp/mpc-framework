@@ -54,7 +54,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
         MatrixXd A_ij = MatrixXd::Identity(n, n);  // A^0 for j=i
         for (int j = i; j >= 0; j--) {
             Su.block(i*n, j*m, n, m) = A_ij * B_d;
-            A_ij = A * A_ij;  // A^(i-j+1) for next iteration
+            A_ij = A_d * A_ij;  // A^(i-j+1) for next iteration
         }
     }
 
