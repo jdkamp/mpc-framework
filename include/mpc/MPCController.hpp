@@ -16,64 +16,38 @@ struct MPCWeights {
     Eigen::MatrixXd Qf; // terminal cost weight
     Eigen::MatrixXd R;  // R weights
     Eigen::MatrixXd S;  // S weights for delta_u (control input change)
-    
-    MPCWeights(const SystemModel& model) : // default to identity weights
-        Q(Eigen::MatrixXd::Identity(model.state_dim(), model.state_dim())),
-        Qf(Eigen::MatrixXd::Identity(model.state_dim(), model.state_dim())),
-        R(Eigen::MatrixXd::Identity(model.input_dim(), model.input_dim())),
-        S(Eigen::MatrixXd::Zero(model.input_dim(), model.input_dim()))
-    {}
+
+    // Default to identity Q/Qf/R and zero S
+    MPCWeights(const SystemModel& model);
 
     // Compute optimal terminal cost Qf via DARE using the current Q and R
     Eigen::MatrixXd compute_dare(
         const SystemModel& model,
-        const Eigen::VectorXd& x_trim, 
+        const Eigen::VectorXd& x_trim,
         const Eigen::VectorXd& u_trim,
         double dt,
-        int max_iter = 1000, 
-        double tol = 1e-8) const
-    {
-        int n = model.state_dim();
-        Eigen::MatrixXd A_d = Eigen::MatrixXd::Identity(n, n) + dt * model.jacobian_x(x_trim, u_trim);
-        Eigen::MatrixXd B_d = dt * model.jacobian_u(x_trim, u_trim);
-        Eigen::MatrixXd P = Q;
-        for (int i = 0; i < max_iter; i++) {
-            Eigen::MatrixXd M = R + B_d.transpose() * P * B_d;
-            Eigen::MatrixXd S = M.inverse();
-            Eigen::MatrixXd P_new = Q + A_d.transpose() * P * A_d
-                - A_d.transpose() * P * B_d * S * B_d.transpose() * P * A_d;
-            if ((P_new - P).norm() < tol) return P_new;
-            P = P_new;
-        }
-        return P;
-    }
-        Eigen::MatrixXd compute_dare(
+        int max_iter = 1000,
+        double tol = 1e-8) const;
+
+    // Overload: assume zero input trim
+    Eigen::MatrixXd compute_dare(
         const SystemModel& model,
         const Eigen::VectorXd& x_trim,
         double dt,
-        int max_iter = 1000, 
-        double tol = 1e-8) const
-    {
-        return compute_dare(model, x_trim, Eigen::VectorXd::Zero(model.input_dim()), dt);
-    }
+        int max_iter = 1000,
+        double tol = 1e-8) const;
 };
 
 struct MPCLimits {
-    Eigen::VectorXd u_min;       // minimum control inputex
+    Eigen::VectorXd u_min;       // minimum control input
     Eigen::VectorXd u_max;       // maximum control input
     Eigen::VectorXd x_min;       // minimum state
     Eigen::VectorXd x_max;       // maximum state
     Eigen::VectorXd delta_u_min; // minimum change in control input
     Eigen::VectorXd delta_u_max; // maximum change in control input
 
-    MPCLimits(const SystemModel& model) : // default to no constraints
-        u_min(Eigen::VectorXd::Constant(model.input_dim(), -1e10)),
-        u_max(Eigen::VectorXd::Constant(model.input_dim(), 1e10)),
-        x_min(Eigen::VectorXd::Constant(model.state_dim(), -1e10)),
-        x_max(Eigen::VectorXd::Constant(model.state_dim(), 1e10)),
-        delta_u_min(Eigen::VectorXd::Constant(model.input_dim(), -1e10)),
-        delta_u_max(Eigen::VectorXd::Constant(model.input_dim(), 1e10))
-    {}
+    // Default to no constraints (+/- 1e10)
+    MPCLimits(const SystemModel& model);
 };
 
 // MPC controller - solves a QP at each time step using a linearized system model
@@ -91,14 +65,23 @@ public:
 
     // Returns the time of the last solve() call in seconds
     double get_solve_time() const;
+
 private:
+    Eigen::MatrixXd predicted_trajectory_;
+    double solve_time_;
+    Eigen::VectorXd previous_u_; // for delta_u constraints
+
+protected:
     const SystemModel& model_;
     MPCConfig config_;
     MPCWeights weights_;
     MPCLimits limits_;
-    Eigen::MatrixXd predicted_trajectory_;
-    double solve_time_;
-    Eigen::VectorXd previous_u_; // for delta_u constraints
+
+    // Per-step state bounds for the lifted QP, shifted to the input variables.
+    // MPCController returns the untightened limits; the SMPCController overrides these
+    // to apply chance-constraint tightening based on the propagated covariance tube.
+    virtual Eigen::VectorXd state_upper_bounds(const Eigen::MatrixXd& Sx, const Eigen::VectorXd& x0) const;
+    virtual Eigen::VectorXd state_lower_bounds(const Eigen::MatrixXd& Sx, const Eigen::VectorXd& x0) const;
 };
 
 #endif // MPC_MPC_CONTROLLER_HPP

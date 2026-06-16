@@ -7,7 +7,65 @@ using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using Eigen::SparseMatrix;
 
-MPCController::MPCController(const SystemModel& model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits) : 
+/*************************************
+ MPCWeights
+**************************************/
+MPCWeights::MPCWeights(const SystemModel& model) : // default to identity weights
+    Q(MatrixXd::Identity(model.state_dim(), model.state_dim())),
+    Qf(MatrixXd::Identity(model.state_dim(), model.state_dim())),
+    R(MatrixXd::Identity(model.input_dim(), model.input_dim())),
+    S(MatrixXd::Zero(model.input_dim(), model.input_dim()))
+{}
+
+MatrixXd MPCWeights::compute_dare(
+    const SystemModel& model,
+    const VectorXd& x_trim,
+    const VectorXd& u_trim,
+    double dt,
+    int max_iter,
+    double tol) const
+{
+    int n = model.state_dim();
+    MatrixXd A_d = MatrixXd::Identity(n, n) + dt * model.jacobian_x(x_trim, u_trim);
+    MatrixXd B_d = dt * model.jacobian_u(x_trim, u_trim);
+    MatrixXd P = Q;
+    for (int i = 0; i < max_iter; i++) {
+        MatrixXd M = R + B_d.transpose() * P * B_d;
+        MatrixXd S = M.inverse();
+        MatrixXd P_new = Q + A_d.transpose() * P * A_d
+            - A_d.transpose() * P * B_d * S * B_d.transpose() * P * A_d;
+        if ((P_new - P).norm() < tol) return P_new;
+        P = P_new;
+    }
+    return P;
+}
+
+MatrixXd MPCWeights::compute_dare(
+    const SystemModel& model,
+    const VectorXd& x_trim,
+    double dt,
+    int max_iter,
+    double tol) const
+{
+    return compute_dare(model, x_trim, VectorXd::Zero(model.input_dim()), dt);
+}
+
+/*************************************
+ MPCLimits
+**************************************/
+MPCLimits::MPCLimits(const SystemModel& model) : // default to no constraints
+    u_min(VectorXd::Constant(model.input_dim(), -1e10)),
+    u_max(VectorXd::Constant(model.input_dim(), 1e10)),
+    x_min(VectorXd::Constant(model.state_dim(), -1e10)),
+    x_max(VectorXd::Constant(model.state_dim(), 1e10)),
+    delta_u_min(VectorXd::Constant(model.input_dim(), -1e10)),
+    delta_u_max(VectorXd::Constant(model.input_dim(), 1e10))
+{}
+
+/*************************************
+ MPCController
+**************************************/
+MPCController::MPCController(const SystemModel& model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits) :
     model_(model), 
     config_(config), 
     weights_(weights),
@@ -29,9 +87,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     int m = model_.input_dim();
     int N = config_.N;
 
-    /*************************************
-    Build MPC matrices
-    **************************************/ 
+    // --- Build MPC matrices ---
     // Linearization
     VectorXd u0 = VectorXd::Zero(m);
     MatrixXd A = model_.jacobian_x(x0, u0);
@@ -95,14 +151,12 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     SparseMatrix<double> P_sparse = P.sparseView();
 
 
-    /*************************************
-    Input, state, and rate constraints
-    **************************************/ 
+    // --- Input, state, and rate constraints ---
     // upper and lower bounds
     VectorXd lb(m*N + n*N + m*N);
     VectorXd ub(m*N + n*N + m*N);
-    lb << limits_.u_min.replicate(N,1), limits_.x_min.replicate(N,1) - Sx*x0, limits_.delta_u_min.replicate(N,1) + d_prev;
-    ub << limits_.u_max.replicate(N,1), limits_.x_max.replicate(N,1) - Sx*x0, limits_.delta_u_max.replicate(N,1) + d_prev;
+    lb << limits_.u_min.replicate(N,1), state_lower_bounds(Sx, x0), limits_.delta_u_min.replicate(N,1) + d_prev;
+    ub << limits_.u_max.replicate(N,1), state_upper_bounds(Sx, x0), limits_.delta_u_max.replicate(N,1) + d_prev;
 
 
     // Constraint matrix: [input bounds; state bounds; rate bounds]
@@ -111,10 +165,9 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     SparseMatrix<double> A_con = A_con_dense.sparseView();
 
 
+    // --- MPC ---
     auto t_start = std::chrono::high_resolution_clock::now();   // Start timer
-    /*************************************
-    MPC
-    **************************************/ 
+    
     // Setup solver
     OsqpEigen::Solver solver;
     solver.settings()->setVerbosity(false);
@@ -132,9 +185,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     auto t_end = std::chrono::high_resolution_clock::now();     // End timer
     solve_time_ = std::chrono::duration<double>(t_end - t_start).count();
 
-    /*************************************
-    Output processing
-    **************************************/ 
+    // --- Output processing ---
     // Extract first control input
     VectorXd U = solver.getSolution();
     // Predicted trajectory
@@ -145,3 +196,10 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     return U.segment(0, m);
 }
 
+VectorXd MPCController::state_upper_bounds(const MatrixXd& Sx, const VectorXd& x0) const {
+    return limits_.x_max.replicate(config_.N, 1) - Sx * x0;
+}
+
+VectorXd MPCController::state_lower_bounds(const MatrixXd& Sx, const VectorXd& x0) const {
+    return limits_.x_min.replicate(config_.N, 1) - Sx * x0;
+}
