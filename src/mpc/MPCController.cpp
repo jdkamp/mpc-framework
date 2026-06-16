@@ -7,9 +7,7 @@ using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using Eigen::SparseMatrix;
 
-/*************************************
- MPCWeights
-**************************************/
+// MPCWeights
 MPCWeights::MPCWeights(const SystemModel& model) : // default to identity weights
     Q(MatrixXd::Identity(model.state_dim(), model.state_dim())),
     Qf(MatrixXd::Identity(model.state_dim(), model.state_dim())),
@@ -47,12 +45,36 @@ MatrixXd MPCWeights::compute_dare(
     int max_iter,
     double tol) const
 {
-    return compute_dare(model, x_trim, VectorXd::Zero(model.input_dim()), dt);
+    return compute_dare(model, x_trim, VectorXd::Zero(model.input_dim()), dt, max_iter, tol);
 }
 
-/*************************************
- MPCLimits
-**************************************/
+MatrixXd MPCWeights::compute_lqr_gain(
+    const SystemModel& model,
+    const VectorXd& x_trim,
+    const VectorXd& u_trim,
+    double dt,
+    int max_iter,
+    double tol) const
+{
+    int n = model.state_dim();
+    MatrixXd A_d = MatrixXd::Identity(n, n) + dt * model.jacobian_x(x_trim, u_trim);
+    MatrixXd B_d = dt * model.jacobian_u(x_trim, u_trim);
+    MatrixXd P = compute_dare(model, x_trim, u_trim, dt, max_iter, tol);    // reuse DARE
+    MatrixXd M = R + B_d.transpose() * P * B_d;
+    return -M.inverse() * B_d.transpose() * P * A_d;                        // K
+}
+
+MatrixXd MPCWeights::compute_lqr_gain(
+    const SystemModel& model,
+    const VectorXd& x_trim,
+    double dt,
+    int max_iter,
+    double tol) const
+{
+    return compute_lqr_gain(model, x_trim, VectorXd::Zero(model.input_dim()), dt, max_iter, tol);
+}
+
+// MPCLimits
 MPCLimits::MPCLimits(const SystemModel& model) : // default to no constraints
     u_min(VectorXd::Constant(model.input_dim(), -1e10)),
     u_max(VectorXd::Constant(model.input_dim(), 1e10)),
@@ -62,9 +84,7 @@ MPCLimits::MPCLimits(const SystemModel& model) : // default to no constraints
     delta_u_max(VectorXd::Constant(model.input_dim(), 1e10))
 {}
 
-/*************************************
- MPCController
-**************************************/
+// MPCController
 MPCController::MPCController(const SystemModel& model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits) :
     model_(model), 
     config_(config), 
@@ -87,7 +107,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     int m = model_.input_dim();
     int N = config_.N;
 
-    // --- Build MPC matrices ---
+    // Build MPC matrices
     // Linearization
     VectorXd u0 = VectorXd::Zero(m);
     MatrixXd A = model_.jacobian_x(x0, u0);
@@ -151,7 +171,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     SparseMatrix<double> P_sparse = P.sparseView();
 
 
-    // --- Input, state, and rate constraints ---
+    // Input, state, and rate constraints
     // upper and lower bounds
     VectorXd lb(m*N + n*N + m*N);
     VectorXd ub(m*N + n*N + m*N);
@@ -165,7 +185,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     SparseMatrix<double> A_con = A_con_dense.sparseView();
 
 
-    // --- MPC ---
+    // Solve QP
     auto t_start = std::chrono::high_resolution_clock::now();   // Start timer
     
     // Setup solver
@@ -185,7 +205,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     auto t_end = std::chrono::high_resolution_clock::now();     // End timer
     solve_time_ = std::chrono::duration<double>(t_end - t_start).count();
 
-    // --- Output processing ---
+    // Output processing
     // Extract first control input
     VectorXd U = solver.getSolution();
     // Predicted trajectory

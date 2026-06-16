@@ -46,9 +46,7 @@ GPResidualModel::GPResidualModel(const std::string& params_path, double wheelbas
     alpha_ = K_inv_ * y;
 }
 
-/*************************************
- Delegations to the nominal bicycle model
-**************************************/ 
+// Delegations to the nominal bicycle model
 
 int GPResidualModel::state_dim() const { 
     return bicycle_model_.state_dim(); 
@@ -67,9 +65,7 @@ MatrixXd GPResidualModel::jacobian_u(const VectorXd&x, const VectorXd&u) const {
 }
 
 
-/*************************************
- GP-augmented methods
-**************************************/ 
+// GP-augmented methods
 
 VectorXd GPResidualModel::dynamics(const VectorXd&x, const VectorXd&u) const {
     VectorXd dx = bicycle_model_.dynamics(x, u);

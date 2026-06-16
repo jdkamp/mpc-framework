@@ -36,6 +36,25 @@ struct MPCWeights {
         double dt,
         int max_iter = 1000,
         double tol = 1e-8) const;
+
+    // Compute the LQR feedback gain (such that u = K x) from the DARE solution
+    // K = -(R + B_d^T P B_d)^-1 B_d^T P A_d
+    Eigen::MatrixXd compute_lqr_gain(
+        const SystemModel& model,
+        const Eigen::VectorXd& x_trim,
+        const Eigen::VectorXd& u_trim,
+        double dt,
+        int max_iter = 1000,
+        double tol = 1e-8) const;
+
+    // Overload. assume zero inputs trim
+    Eigen::MatrixXd compute_lqr_gain(
+        const SystemModel& model,
+        const Eigen::VectorXd& x_trim,
+        double dt,
+        int ma_xiter = 1000,
+        double tol = 1e-8) const;
+
 };
 
 struct MPCLimits {
