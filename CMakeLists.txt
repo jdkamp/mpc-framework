@@ -63,6 +63,7 @@ target_link_libraries(bicycle_model PUBLIC
 
 add_library(mpc_controller
     src/mpc/MPCController.cpp
+    src/mpc/SMPCController.cpp
 )
 
 target_include_directories(mpc_controller PUBLIC
