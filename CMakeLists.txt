@@ -93,6 +93,7 @@ add_executable(tests
     tests/BicycleModelTest.cpp
     tests/MPCControllerTest.cpp
     tests/GPResidualModelTest.cpp
+    tests/SMPCControllerTest.cpp
 )
 target_link_libraries(tests
     bicycle_model
