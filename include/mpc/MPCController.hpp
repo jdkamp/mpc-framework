@@ -52,7 +52,7 @@ struct MPCWeights {
         const SystemModel& model,
         const Eigen::VectorXd& x_trim,
         double dt,
-        int ma_xiter = 1000,
+        int max_xiter = 1000,
         double tol = 1e-8) const;
 
 };
