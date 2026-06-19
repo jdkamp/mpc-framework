@@ -121,3 +121,25 @@ add_executable(path_following
 target_link_libraries(path_following
     mpc_controller
 )
+
+add_executable(comparison
+    examples/comparison/main.cpp
+)
+target_link_libraries(comparison
+    mpc_controller
+    gp_residual_model
+)
+target_compile_definitions(comparison PRIVATE
+    GP_PARAMS_PATH="${CMAKE_SOURCE_DIR}/data/gp_params.json"
+)
+
+add_executable(montecarlo
+    examples/montecarlo/main.cpp
+)
+target_link_libraries(montecarlo
+    mpc_controller
+    gp_residual_model
+)
+target_compile_definitions(montecarlo PRIVATE
+    GP_PARAMS_PATH="${CMAKE_SOURCE_DIR}/data/gp_params.json"
+)

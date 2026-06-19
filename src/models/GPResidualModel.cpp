@@ -57,11 +57,15 @@ int GPResidualModel::input_dim() const {
 }
 
 MatrixXd GPResidualModel::jacobian_x(const VectorXd&x, const VectorXd&u) const {
-    return bicycle_model_.jacobian_x(x, u);
+    MatrixXd J = bicycle_model_.jacobian_x(x, u);
+    J(2, 3) += gp_mean_dv(x(3), u(0));
+    return J;
 }
 
 MatrixXd GPResidualModel::jacobian_u(const VectorXd&x, const VectorXd&u) const {
-    return bicycle_model_.jacobian_u(x, u);
+    MatrixXd J = bicycle_model_.jacobian_u(x, u);
+    J(2, 0) += gp_mean_ddelta(x(3), u(0));
+    return J;
 }
 
 
@@ -112,4 +116,32 @@ double GPResidualModel::kernel(const VectorXd&a, const VectorXd& b) const {
     double term_d = (dd / l_delta_) * (dd / l_delta_);  // Squared distance in steering angle normalized by length scale
     double exponent = -0.5 * (term_v + term_d);         // RBF kernel exponent
     return sigma_f_sq_ * std::exp(exponent);            // RBF kernel value
+}
+
+double GPResidualModel::gp_mean_dv(double v, double delta) const {
+    int N = X_train_.rows();
+    VectorXd query(2);
+    query << v, delta;
+
+    double sum = 0.0;
+    for(int i = 0; i < N; i++) {
+        double k_i = kernel(query, X_train_.row(i).transpose());
+        double v_i = X_train_(i, 0);
+        sum += alpha_(i) * k_i * ( -(v - v_i) / (l_v_ * l_v_) );
+    }
+    return sum;
+}
+
+double GPResidualModel::gp_mean_ddelta(double v, double delta) const {
+    int N = X_train_.rows();
+    VectorXd query(2);
+    query << v, delta;
+
+    double sum = 0.0;
+    for(int i = 0; i < N; i++) {
+        double k_i = kernel(query, X_train_.row(i).transpose());
+        double delta_i = X_train_(i, 1);
+        sum += alpha_(i) * k_i * ( -(delta - delta_i) / (l_delta_ * l_delta_) );
+    }
+    return sum;
 }
