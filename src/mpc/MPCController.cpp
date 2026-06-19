@@ -208,6 +208,10 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // Output processing
     // Extract first control input
     VectorXd U = solver.getSolution();
+    if (!U.allFinite() || U.cwiseAbs().maxCoeff() > 1e3) {
+        return previous_u_;   // bad solve (infeasible under disturbance) -> hold last command
+    }
+
     // Predicted trajectory
     predicted_trajectory_ = Sx * x0 + Su * U;
     // Store previous control for delta_u constraints in next iteration

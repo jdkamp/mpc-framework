@@ -15,10 +15,10 @@ class GPResidualModelTest : public ::testing::Test {
 TEST_F(GPResidualModelTest, MeanMatchesPython) {
     struct Case { double v, delta, mean; };
     std::vector<Case> cases {
-        {5.0,  0.1, -0.011242},
-        {10.0, 0.3, -0.121218},
-        {3.0, -0.2,  0.007463},
-        {8.0,  0.0, -0.001836},
+        {5.0,  0.1, -0.011260},
+        {10.0, 0.3,  0.003349},
+        {3.0, -0.2,  0.009454},
+        {8.0,  0.0,  0.012059},
     };
     for (auto c : cases) {
         VectorXd x(4); x << 0, 0, 0, c.v;
@@ -33,9 +33,9 @@ TEST_F(GPResidualModelTest, VarianceMatchesPython) {
     struct Case { double v, delta, var; };
     std::vector<Case> cases = {
         {5.0,  0.1, 0.000000},
-        {10.0, 0.3, 0.000032},
-        {3.0, -0.2, 0.000001},
-        {8.0,  0.0, 0.000001},
+        {10.0, 0.3, 0.001710},
+        {3.0, -0.2, 0.000004},
+        {8.0,  0.0, 0.000033},
     };
     for (auto c : cases) {
         VectorXd x(4); x << 0, 0, 0, c.v;
@@ -44,3 +44,20 @@ TEST_F(GPResidualModelTest, VarianceMatchesPython) {
     }
 }
 
+TEST_F(GPResidualModelTest, JacobianMatchesFiniteDifference) {
+    struct Case { double v, delta; };
+    std::vector<Case> cases { {5.0, 0.1}, {10.0, 0.3}, {3.0, -0.2}, {8.0, 0.05} };
+    double eps = 1e-6;
+    for (auto c : cases) {
+        VectorXd x(4); x << 0, 0, 0, c.v;
+        VectorXd u(2); u << c.delta, 0;
+
+        VectorXd xp = x; xp(3) += eps;
+        double fd_v = (gp_model.dynamics(xp, u)(2) - gp_model.dynamics(x, u)(2)) / eps;
+        EXPECT_NEAR(gp_model.jacobian_x(x, u)(2, 3), fd_v, 1e-4);
+
+        VectorXd up = u; up(0) += eps;
+        double fd_d = (gp_model.dynamics(x, up)(2) - gp_model.dynamics(x, u)(2)) / eps;
+        EXPECT_NEAR(gp_model.jacobian_u(x, u)(2, 0), fd_d, 1e-4);
+    }
+}

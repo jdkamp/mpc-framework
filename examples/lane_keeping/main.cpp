@@ -14,7 +14,7 @@ int main() {
     int T = 50; // simulation steps
 
     // Create system model and MPC controller
-    double wheelbase = 2.;
+    double wheelbase = 2.7;
     BicycleModel model(wheelbase);
 
     MPCConfig config;

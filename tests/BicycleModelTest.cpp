@@ -26,7 +26,7 @@ TEST_F(BicycleModelTest, DynamicsStraightLine) {
     EXPECT_NEAR(xdot(3), 0, 1e-6);
 }
 
-TEST_F(BicycleModelTest, DynamicsCurveDriving) {
+TEST_F(BicycleModelTest, DynamicsCurveDriving)      {
     VectorXd x(4);
     x << 0, 0, M_PI/2, 1;  // px, py, psi, vel
 

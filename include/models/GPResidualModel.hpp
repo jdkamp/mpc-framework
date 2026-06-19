@@ -39,6 +39,10 @@ private:
 
     // RBF kernel function: similarity between two input points [v, delta]
     double kernel(const Eigen::VectorXd& a, const Eigen::VectorXd& b) const;
+
+    // Partial derivates of the GP posterior mean (for the Jacobian contribution)
+    double gp_mean_dv(double v, double delta) const;
+    double gp_mean_ddelta(double v, double delta) const;
 };
 
 #endif // GP_RESIDUAL_MODEL_HPP
