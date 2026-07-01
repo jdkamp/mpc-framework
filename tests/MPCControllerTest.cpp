@@ -254,3 +254,17 @@ TEST_F(MPCControllerTest, ControlConvergence) {
     EXPECT_NEAR(x(2), x_ref(2), 0.1);
     EXPECT_NEAR(x(3), x_ref(3), 0.1);
 }
+
+TEST_F(MPCControllerTest, SoftConstraintStaysFeasible) {
+    limits.x_max(1) = -1.0;     // py <= -1, but start at 0, the hard constraint is not feasable
+
+    MPCController mpc(model, config, weights, limits);
+    VectorXd x0(4); x0 << 0, 0, 0, 5;
+    VectorXd x_ref = x0;
+
+    VectorXd u = mpc.solve(x0, x_ref.replicate(config.N, 1));
+    EXPECT_GT(mpc.get_predicted_trajectory().col(1).maxCoeff(), 
+        limits.x_max(1));   // Controller needs to violate constraints
+    EXPECT_TRUE(u.allFinite());     // Sovler is feasable
+    EXPECT_LT(u.cwiseAbs().maxCoeff(), 100.0);
+}

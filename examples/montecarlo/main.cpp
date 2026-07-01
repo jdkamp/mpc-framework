@@ -81,9 +81,9 @@ int main() {
     };
 
     MPCWeights weights(bicycle);
-    weights.Q = Vector4d(0.0, 1.0, 1.0, 1.0).asDiagonal();   // [px, py, psi, v]
-    weights.R = Vector2d(20.0, 10.0).asDiagonal();               // [delta, a]
-    weights.S = Vector2d(10.0, 10.0).asDiagonal();
+    weights.Q = Vector4d(0.0, 100.0, 100.0, 100.0).asDiagonal();   // [px, py, psi, v]
+    weights.R = Vector2d(5.0, 5.0).asDiagonal();               // [delta, a]
+    weights.S = Vector2d(1.0, 1.0).asDiagonal();
     VectorXd x_trim = (VectorXd(4) << 0, 0, 0, v_ref).finished();
     weights.Qf = weights.compute_dare(bicycle, x_trim, config.dt);
 
@@ -92,8 +92,9 @@ int main() {
     limits.u_max = (VectorXd(2) << 0.5, 5.0).finished();
     limits.delta_u_min = (VectorXd(2) << -1.0, -5.0).finished();
     limits.delta_u_max = (VectorXd(2) <<  1.0,  5.0).finished();
-
-    limits.x_max(1) = 6.0;
+    
+    double py_bound = 9.0;
+    limits.x_max(1) = py_bound;
 
 
     VectorXd x0(4);       x0 << 0, 0, 0, v_ref; // start at v_ref
@@ -115,8 +116,7 @@ int main() {
     MPCController gmpc(gp, config, weights, limits);
     SMPCController smpc(gp, config, weights, limits, p);
 
-    int N_mc = 200;
-    double py_bound = 6.0;
+    int N_mc = 20;
 
     double max_det = 0, max_gp = 0, max_smpc = 0;
     int total_steps = N_mc * T;
