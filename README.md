@@ -172,11 +172,8 @@ scripts/
 ## Limitations and future work
 
 **Current Limitations**
-- **Hard state constraints:** The `py` bound is enforced as a hard constraint, so a large disturbance can make the QP infeasible. Softening it with a penalized slack variable would keep the problem always feasible — the standard robust-MPC solution.
-- **No solver-fault handling:** A failed or infeasible OSQP solve is currently used as-is. A robust controller should detect this and use a fall back strategy.
 - **Linearization at zero input:** The model is re-linearized around `u0 = 0` each step rather than the actual operating point, which reduces prediction accuracy.
 
 **Future work**
-- **Robustness:** soft (chance) constraints + solver guarding, to remove the disturbance-induced infeasibility.
 - **Neural-network models:** the `StochasticSystemModel` interface is model-agnostic, so a neural network that reports its own uncertainty (deep ensemble, MC-dropout, or a heteroscedastic head) could replace the GP **without touching the controller**.
 - **Other system models:** extend beyond the kinematic bicycle model.

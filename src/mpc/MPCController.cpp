@@ -107,6 +107,12 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     int m = model_.input_dim();
     int N = config_.N;
 
+    int nU = m * N;     // number control variables
+    int nS = n * N;     // one slack per state-constraint
+    int nVars = nU + nS;// augmented decision vector
+    double rho = 1e3;   // L1 slack penalty
+    const double INF = 1e30;
+
     // Build MPC matrices
     // Linearization
     VectorXd u0 = VectorXd::Zero(m);
@@ -166,23 +172,58 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // Build P and q
     MatrixXd P = Su.transpose() * Q_bar * Su + R_bar + D.transpose() * S_bar * D;
     VectorXd q = Su.transpose() * Q_bar * (Sx * x0 - x_ref) - D.transpose() * S_bar * d_prev; 
+    
+    // Augmented P and q for slack
+    MatrixXd P_aug = MatrixXd::Zero(nVars, nVars);
+    P_aug.topLeftCorner(nU, nU) = P;
+    P_aug.bottomRightCorner(nS, nS) = 1e-6 * MatrixXd::Identity(nS, nS);
+    SparseMatrix<double> P_sparse = P_aug.sparseView();
 
-    // Convert to sparse
-    SparseMatrix<double> P_sparse = P.sparseView();
+    VectorXd q_aug(nVars);
+    q_aug << q, rho * VectorXd::Ones(nS);  // L1 penalty on each slack
 
 
     // Input, state, and rate constraints
     // upper and lower bounds
-    VectorXd lb(m*N + n*N + m*N);
-    VectorXd ub(m*N + n*N + m*N);
-    lb << limits_.u_min.replicate(N,1), state_lower_bounds(Sx, x0), limits_.delta_u_min.replicate(N,1) + d_prev;
-    ub << limits_.u_max.replicate(N,1), state_upper_bounds(Sx, x0), limits_.delta_u_max.replicate(N,1) + d_prev;
+    int nCon = nU + nS + nS + nU + nS;     // input + state-upper + state-lower + rate + slack>=0
+    MatrixXd A_con_dense(nCon, nVars);
+    A_con_dense.setZero();
+    VectorXd lb(nCon), ub(nCon);
+    int r = 0;
 
+    // 1) input bounds:  [I | 0]
+    A_con_dense.block(r, 0, nU, nU) = MatrixXd::Identity(nU, nU);
+    lb.segment(r, nU) = limits_.u_min.replicate(N, 1);
+    ub.segment(r, nU) = limits_.u_max.replicate(N, 1);
+    r += nU;
 
-    // Constraint matrix: [input bounds; state bounds; rate bounds]
-    MatrixXd A_con_dense(m*N + n*N + m*N, m*N);
-    A_con_dense << MatrixXd::Identity(m*N, m*N), Su, D;
+    // 2) state upper (soft):  Su*U - s <= x_upper   ->  [Su | -I],  ub = x_upper
+    A_con_dense.block(r, 0, nS, nU)  = Su;
+    A_con_dense.block(r, nU, nS, nS) = -MatrixXd::Identity(nS, nS);
+    lb.segment(r, nS).setConstant(-INF);
+    ub.segment(r, nS) = state_upper_bounds(Sx, x0);
+    r += nS;
+
+    // 3) state lower (soft):  Su*U + s >= x_lower   ->  [Su | +I],  lb = x_lower
+    A_con_dense.block(r, 0, nS, nU)  = Su;
+    A_con_dense.block(r, nU, nS, nS) = MatrixXd::Identity(nS, nS);
+    lb.segment(r, nS) = state_lower_bounds(Sx, x0);
+    ub.segment(r, nS).setConstant(INF);
+    r += nS;
+
+    // 4) rate bounds:  [D | 0]
+    A_con_dense.block(r, 0, nU, nU) = D;
+    lb.segment(r, nU) = limits_.delta_u_min.replicate(N, 1) + d_prev;
+    ub.segment(r, nU) = limits_.delta_u_max.replicate(N, 1) + d_prev;
+    r += nU;
+
+    // 5) slack >= 0:  [0 | I]
+    A_con_dense.block(r, nU, nS, nS) = MatrixXd::Identity(nS, nS);
+    lb.segment(r, nS).setConstant(0.0);
+    ub.segment(r, nS).setConstant(INF);
+
     SparseMatrix<double> A_con = A_con_dense.sparseView();
+
 
 
     // Solve QP
@@ -191,13 +232,13 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // Setup solver
     OsqpEigen::Solver solver;
     solver.settings()->setVerbosity(false);
-    solver.data()->setNumberOfVariables(m * N);
-    solver.data()->setNumberOfConstraints(m*N + n*N + m*N);
+    solver.data()->setNumberOfVariables(nVars);
+    solver.data()->setNumberOfConstraints(nCon);
     solver.data()->setLinearConstraintsMatrix(A_con);
     solver.data()->setLowerBound(lb);
     solver.data()->setUpperBound(ub);
     solver.data()->setHessianMatrix(P_sparse);
-    solver.data()->setGradient(q);
+    solver.data()->setGradient(q_aug);
     solver.initSolver();
     // Run sover
     solver.solveProblem();
@@ -207,10 +248,12 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
 
     // Output processing
     // Extract first control input
-    VectorXd U = solver.getSolution();
-    if (!U.allFinite() || U.cwiseAbs().maxCoeff() > 1e3) {
+    VectorXd Z = solver.getSolution();
+    if (!Z.allFinite() || Z.cwiseAbs().maxCoeff() > 1e6) {
+        std::cout << "Bad solve \n";
         return previous_u_;   // bad solve (infeasible under disturbance) -> hold last command
     }
+    VectorXd U = Z.head(nU);
 
     // Predicted trajectory
     predicted_trajectory_ = Sx * x0 + Su * U;
