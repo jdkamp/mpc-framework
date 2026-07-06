@@ -172,8 +172,12 @@ scripts/
 ## Limitations and future work
 
 **Current Limitations**
-- **Linearization at zero input:** The model is re-linearized around `u0 = 0` each step rather than the actual operating point, which reduces prediction accuracy.
+- **Linearization at zero input:** The model is re-linearized around `u0 = 0` each step , which reduces prediction accuracy away from small inputs.
+- **Unimodal uncertainty:** The Cantelli-based tightening assumes uncertainty that is well described by mean and variance. Multimodal predictions (e.g., "turns left *or* right") would require scenario-based or branch MPC.
+- **Full state feedback:** The controller trusts the measured state `x0` exactly. Uncertainty in the state estimate itself (output-feedback SMPC) is not handled.
 
-**Future work**
-- **Neural-network models:** the `StochasticSystemModel` interface is model-agnostic, so a neural network that reports its own uncertainty (deep ensemble, MC-dropout, or a heteroscedastic head) could replace the GP **without touching the controller**.
+**Future work: from a safe controller to safe learning**
+- **Predictive safety filter for reinforcement learning.** Reuse the SMPC constraint mechanism with a different objective (stay close to the agent's proposed action) to let an RL agent explore *safely during training*. Combined with periodic GP re-training on the collected data, the safe operating region grows as the model learns.
+- **Learned trajectory prediction of other agents.** A neural network predicts surrounding vehicles' trajectories with per-step variance that grows along the horizon; the SMPC turns it into time-varying, uncertainty-proportional distance constraints.
+- **ML planners with uncertainty-aware tracking.** A learned planner proposes (possibly aggressive) reference trajectories; the controller follows them only as far as its model confidence reaches.
 - **Other system models:** extend beyond the kinematic bicycle model.
