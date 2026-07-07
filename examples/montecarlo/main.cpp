@@ -116,7 +116,7 @@ int main() {
     MPCController gmpc(gp, config, weights, limits);
     SMPCController smpc(gp, config, weights, limits, p);
 
-    int N_mc = 20;
+    int N_mc = 200;
 
     double max_det = 0, max_gp = 0, max_smpc = 0;
     int total_steps = N_mc * T;

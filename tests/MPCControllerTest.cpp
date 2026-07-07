@@ -268,3 +268,23 @@ TEST_F(MPCControllerTest, SoftConstraintStaysFeasible) {
     EXPECT_TRUE(u.allFinite());     // Sovler is feasable
     EXPECT_LT(u.cwiseAbs().maxCoeff(), 100.0);
 }
+
+TEST_F(MPCControllerTest, PredictionMatchesEulerStep) {
+    VectorXd x0(4); x0 << 0.0, 2.0, 0.4, 10.0;
+    VectorXd u0 = VectorXd::Zero(2);
+
+    // reference: hold x0
+    VectorXd x_ref = x0.replicate(config.N, 1);
+    // Sovle MPC
+    MPCController mpc(model, config, weights, limits);
+    VectorXd u_ret = mpc.solve(x0, x_ref);
+    MatrixXd pred = mpc.get_predicted_trajectory();
+
+    // Euler dynamic
+    VectorXd x_euler = x0 + config.dt * model.dynamics(x0, u_ret);
+
+    // Check that the first predicted state matches the Euler step
+    for (int i = 0; i < 4; i++)
+        EXPECT_NEAR(pred(0, i), x_euler(i), 1e-5);
+
+}

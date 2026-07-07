@@ -15,11 +15,11 @@ Three controllers drive the same vehicle under disturbances, with **identical we
 
 | Controller | Model knowledge | Handles uncertainty | Violations |
 |---|---|---|---|
-| Deterministic MPC | nominal | no | 18.1% |
-| Gaussian Process MPC (GP-MPC) | + learned mean | no | 24.7% |
-| **Stochastic MPC (SMPC)** | + learned variance | yes | **0.85%** |
+| Deterministic MPC | nominal | no | 18.9% |
+| Gaussian Process MPC (GP-MPC) | + learned mean | no | 17.3% |
+| **Stochastic MPC (SMPC)** | + learned variance | yes | **0.35%** |
 
-Over 10,000 disturbed steps, SMPC cuts constraint violations ~20×. Note that GP-MPC is *worse* than the deterministic controller, because it trusts a learned model's mean where it's uncertain. 
+Over 10,000 disturbed steps, SMPC cuts constraint violations by ~50× and stays well inside its 5% chance-constraint budget (p = 0.95). Note that the learned mean alone (GP-MPC) barely helps: a better model does not make a controller safe, handling the model's *uncertainty* does. 
 
 ## Features
 
@@ -72,7 +72,7 @@ All dependencies are fetched automatically via CMake `FetchContent`:
 | [OSQP](https://osqp.org) | 1.0.0 | QP solver |
 | [osqp-eigen](https://github.com/robotology/osqp-eigen) | 0.11.0 | C++ OSQP wrapper |
 | [GoogleTest](https://github.com/google/googletest) | 1.14.0 | Unit testing |
-| [nlohmann/json](https://github.com/nlohmann/json) | 3.x | Parse the exported GP parameters |
+| [nlohmann/json](https://github.com/nlohmann/json) | 3.11.3 | Parse the exported GP parameters |
 
 
 Requires: CMake ≥ 3.14, a C++17 compiler.
@@ -172,7 +172,6 @@ scripts/
 ## Limitations and future work
 
 **Current Limitations**
-- **Linearization at zero input:** The model is re-linearized around `u0 = 0` each step , which reduces prediction accuracy away from small inputs.
 - **Unimodal uncertainty:** The Cantelli-based tightening assumes uncertainty that is well described by mean and variance. Multimodal predictions (e.g., "turns left *or* right") would require scenario-based or branch MPC.
 - **Full state feedback:** The controller trusts the measured state `x0` exactly. Uncertainty in the state estimate itself (output-feedback SMPC) is not handled.
 

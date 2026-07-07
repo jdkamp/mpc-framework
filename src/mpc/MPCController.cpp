@@ -123,6 +123,10 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     MatrixXd A_d = MatrixXd::Identity(n, n) + config_.dt * A;
     MatrixXd B_d = config_.dt * B;
 
+    // Affine offset of the linearization: x_{k+1} = A_d x_k + B_d u_k + c.
+    // Without it the prediction double-counts the free response away from (x0, u0).
+    VectorXd c = config_.dt * (model_.dynamics(x0, u0) - A * x0 - B * u0);
+
 
     // Build Sx (n*N x n) and Su (n*N x m*N)
     MatrixXd Sx = MatrixXd::Zero(n*N, n);
@@ -139,6 +143,15 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
             A_ij = A_d * A_ij;  // A^(i-j+1) for next iteration
         }
     }
+
+    // Lifted affine offset: off_k = A_d off_{k-1} + c, and the resulting free response
+    VectorXd C_lift(n*N);
+    VectorXd off = VectorXd::Zero(n);
+    for (int k = 0; k < N; k++) {
+        off = A_d * off + c;
+        C_lift.segment(k*n, n) = off;
+    }
+    VectorXd x_free = Sx * x0 + C_lift;   // predicted trajectory for U = 0
 
 
     // d_prev for delta_u constraints
@@ -171,7 +184,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
 
     // Build P and q
     MatrixXd P = Su.transpose() * Q_bar * Su + R_bar + D.transpose() * S_bar * D;
-    VectorXd q = Su.transpose() * Q_bar * (Sx * x0 - x_ref) - D.transpose() * S_bar * d_prev; 
+    VectorXd q = Su.transpose() * Q_bar * (x_free - x_ref) - D.transpose() * S_bar * d_prev;
     
     // Augmented P and q for slack
     MatrixXd P_aug = MatrixXd::Zero(nVars, nVars);
@@ -201,13 +214,13 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     A_con_dense.block(r, 0, nS, nU)  = Su;
     A_con_dense.block(r, nU, nS, nS) = -MatrixXd::Identity(nS, nS);
     lb.segment(r, nS).setConstant(-INF);
-    ub.segment(r, nS) = state_upper_bounds(Sx, x0);
+    ub.segment(r, nS) = state_upper_bounds(x_free, x0);
     r += nS;
 
     // 3) state lower (soft):  Su*U + s >= x_lower   ->  [Su | +I],  lb = x_lower
     A_con_dense.block(r, 0, nS, nU)  = Su;
     A_con_dense.block(r, nU, nS, nS) = MatrixXd::Identity(nS, nS);
-    lb.segment(r, nS) = state_lower_bounds(Sx, x0);
+    lb.segment(r, nS) = state_lower_bounds(x_free, x0);
     ub.segment(r, nS).setConstant(INF);
     r += nS;
 
@@ -256,17 +269,17 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     VectorXd U = Z.head(nU);
 
     // Predicted trajectory
-    predicted_trajectory_ = Sx * x0 + Su * U;
+    predicted_trajectory_ = x_free + Su * U;
     // Store previous control for delta_u constraints in next iteration
     previous_u_ = U.segment(0, m);
     
     return U.segment(0, m);
 }
 
-VectorXd MPCController::state_upper_bounds(const MatrixXd& Sx, const VectorXd& x0) const {
-    return limits_.x_max.replicate(config_.N, 1) - Sx * x0;
+VectorXd MPCController::state_upper_bounds(const VectorXd& x_free, const VectorXd& x0) const {
+    return limits_.x_max.replicate(config_.N, 1) - x_free;
 }
 
-VectorXd MPCController::state_lower_bounds(const MatrixXd& Sx, const VectorXd& x0) const {
-    return limits_.x_min.replicate(config_.N, 1) - Sx * x0;
+VectorXd MPCController::state_lower_bounds(const VectorXd& x_free, const VectorXd& x0) const {
+    return limits_.x_min.replicate(config_.N, 1) - x_free;
 }
