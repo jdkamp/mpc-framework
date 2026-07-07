@@ -31,7 +31,7 @@ for col, (name, (path, color)) in enumerate(runs.items()):
         ax.axhline(PY_BOUND, color="black", linestyle="--", label="py constraint")
         ax.grid(True)
     axes[0, col].set_title(name)
-    axes[0, col].set_ylim(0, 25)   # full view (captures the runaways)
+    axes[0, col].set_ylim(0, 16.5)   # full view (captures the runaways)
     axes[1, col].set_ylim(8, 10)   # zoom: the band around the 9.0 bound
     axes[1, col].set_xlabel("Time (s)")
 

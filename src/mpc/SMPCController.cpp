@@ -44,11 +44,11 @@ VectorXd SMPCController::compute_backoff(const VectorXd& x0) const {
 
 }
 
-VectorXd SMPCController::state_upper_bounds(const MatrixXd& Sx, const VectorXd& x0) const {
-    return MPCController::state_upper_bounds(Sx, x0) - compute_backoff(x0);     // tighten down
+VectorXd SMPCController::state_upper_bounds(const VectorXd& x_free, const VectorXd& x0) const {
+    return MPCController::state_upper_bounds(x_free, x0) - compute_backoff(x0);     // tighten down
 }
 
-VectorXd SMPCController::state_lower_bounds(const MatrixXd& Sx, const VectorXd& x0) const {
-    return MPCController::state_lower_bounds(Sx, x0) + compute_backoff(x0);     // tighten up
+VectorXd SMPCController::state_lower_bounds(const VectorXd& x_free, const VectorXd& x0) const {
+    return MPCController::state_lower_bounds(x_free, x0) + compute_backoff(x0);     // tighten up
 }
 

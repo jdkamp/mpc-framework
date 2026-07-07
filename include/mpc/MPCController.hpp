@@ -97,10 +97,11 @@ protected:
     MPCLimits limits_;
 
     // Per-step state bounds for the lifted QP, shifted to the input variables.
+    // x_free is the predicted free response (Sx*x0 + lifted affine offset, i.e. U = 0).
     // MPCController returns the untightened limits; the SMPCController overrides these
     // to apply chance-constraint tightening based on the propagated covariance tube.
-    virtual Eigen::VectorXd state_upper_bounds(const Eigen::MatrixXd& Sx, const Eigen::VectorXd& x0) const;
-    virtual Eigen::VectorXd state_lower_bounds(const Eigen::MatrixXd& Sx, const Eigen::VectorXd& x0) const;
+    virtual Eigen::VectorXd state_upper_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const;
+    virtual Eigen::VectorXd state_lower_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const;
 };
 
 #endif // MPC_MPC_CONTROLLER_HPP

@@ -15,8 +15,8 @@ public:
                    const MPCWeights& weights, const MPCLimits& limits, double p);
 
 protected:
-    Eigen::VectorXd state_upper_bounds(const Eigen::MatrixXd& Sx, const Eigen::VectorXd& x0) const override;
-    Eigen::VectorXd state_lower_bounds(const Eigen::MatrixXd& Sx, const Eigen::VectorXd& x0) const override;
+    Eigen::VectorXd state_upper_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const override;
+    Eigen::VectorXd state_lower_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const override;
 
 private:
     const StochasticSystemModel& smodel_;   // typed reference
