@@ -122,6 +122,13 @@ target_link_libraries(path_following
     mpc_controller
 )
 
+add_executable(parity_reference
+    examples/parity_reference/main.cpp
+)
+target_link_libraries(parity_reference
+    bicycle_model
+)
+
 add_executable(comparison
     examples/comparison/main.cpp
 )
