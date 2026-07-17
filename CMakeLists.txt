@@ -64,6 +64,7 @@ target_link_libraries(bicycle_model PUBLIC
 add_library(mpc_controller
     src/mpc/MPCController.cpp
     src/mpc/SMPCController.cpp
+    src/mpc/SafetyFilter.cpp
 )
 
 target_include_directories(mpc_controller PUBLIC
@@ -94,6 +95,7 @@ add_executable(tests
     tests/MPCControllerTest.cpp
     tests/GPResidualModelTest.cpp
     tests/SMPCControllerTest.cpp
+    tests/SafetyFilterTest.cpp
 )
 target_link_libraries(tests
     bicycle_model
@@ -148,5 +150,16 @@ target_link_libraries(montecarlo
     gp_residual_model
 )
 target_compile_definitions(montecarlo PRIVATE
+    GP_PARAMS_PATH="${CMAKE_SOURCE_DIR}/data/gp_params.json"
+)
+
+add_executable(safety_filter
+    examples/safety_filter/main.cpp
+)
+target_link_libraries(safety_filter
+    mpc_controller
+    gp_residual_model
+)
+target_compile_definitions(safety_filter PRIVATE
     GP_PARAMS_PATH="${CMAKE_SOURCE_DIR}/data/gp_params.json"
 )
