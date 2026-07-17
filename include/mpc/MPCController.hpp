@@ -74,16 +74,18 @@ class MPCController {
 public:
     // Construct MPC controller with a system model and mpc config
     MPCController(const SystemModel& model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits);
-
+    
     // Solve the MPC problem from state x0 tracking x_ref(n*N) over prediction horizon N
     // Returns the first optimal control input [delta, a]
     Eigen::VectorXd solve(const Eigen::VectorXd& x0, const Eigen::VectorXd& x_ref);
     
     // Returns the predicted state trajectory from the last solve() call
     Eigen::MatrixXd get_predicted_trajectory() const;
-
+    
     // Returns the time of the last solve() call in seconds
     double get_solve_time() const;
+    
+    virtual ~MPCController() = default;
 
 private:
     Eigen::MatrixXd predicted_trajectory_;
@@ -102,6 +104,17 @@ protected:
     // to apply chance-constraint tightening based on the propagated covariance tube.
     virtual Eigen::VectorXd state_upper_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const;
     virtual Eigen::VectorXd state_lower_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const;
+
+    // Builds the QP cost over the inputs, before the slack augmentation. Base: reference
+    // tracking. Subclasses override to change the objective (e.g. Safety Filter: stay close
+    // to proposed action).
+    virtual void build_cost(const Eigen::MatrixXd& Su,
+                            const Eigen::VectorXd& x_free,
+                            const Eigen::VectorXd& x_ref,
+                            const Eigen::MatrixXd& D,
+                            const Eigen::VectorXd& d_prev,
+                            Eigen::MatrixXd& P,
+                            Eigen::VectorXd& q) const;
 };
 
 #endif // MPC_MPC_CONTROLLER_HPP
