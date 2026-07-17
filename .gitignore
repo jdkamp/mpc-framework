@@ -74,6 +74,7 @@ __pycache__/
 
 # Python environment
 .venv/
+python/runs/
 
 # output files
 output/
