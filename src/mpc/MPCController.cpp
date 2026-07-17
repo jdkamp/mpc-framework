@@ -166,26 +166,10 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
             D.block(k*m, (k-1)*m, m, m) = -MatrixXd::Identity(m, m);
     }
 
-    // Build Q_bar and R_bar
-    MatrixXd Q_bar = MatrixXd::Zero(n*N, n*N);
-    MatrixXd R_bar = MatrixXd::Zero(m*N, m*N);
+    MatrixXd P;
+    VectorXd q;
+    build_cost(Su, x_free, x_ref, D, d_prev, P, q);
 
-    for (int i = 0; i < N; i++) {
-        Q_bar.block(i*n, i*n, n, n) = weights_.Q;
-        R_bar.block(i*m, i*m, m, m) = weights_.R;
-    }
-    Q_bar.block((N-1)*n, (N-1)*n, n, n) = weights_.Qf; // terminal cost
-
-    // Build S_bar
-    MatrixXd S_bar = MatrixXd::Zero(m*N, m*N);
-    for (int i = 0; i < N; i++)
-        S_bar.block(i*m, i*m, m, m) = weights_.S;
-
-
-    // Build P and q
-    MatrixXd P = Su.transpose() * Q_bar * Su + R_bar + D.transpose() * S_bar * D;
-    VectorXd q = Su.transpose() * Q_bar * (x_free - x_ref) - D.transpose() * S_bar * d_prev;
-    
     // Augmented P and q for slack
     MatrixXd P_aug = MatrixXd::Zero(nVars, nVars);
     P_aug.topLeftCorner(nU, nU) = P;
@@ -283,3 +267,36 @@ VectorXd MPCController::state_upper_bounds(const VectorXd& x_free, const VectorX
 VectorXd MPCController::state_lower_bounds(const VectorXd& x_free, const VectorXd& x0) const {
     return limits_.x_min.replicate(config_.N, 1) - x_free;
 }
+
+void MPCController::build_cost(const MatrixXd& Su,
+                              const VectorXd& x_free,
+                              const VectorXd& x_ref,
+                              const MatrixXd& D,
+                              const VectorXd& d_prev,
+                              MatrixXd& P,
+                              VectorXd& q) const {
+
+    int n = model_.state_dim();
+    int m = model_.input_dim();
+    int N = config_.N;
+
+    // Build Q_bar and R_bar
+    MatrixXd Q_bar = MatrixXd::Zero(n*N, n*N);
+    MatrixXd R_bar = MatrixXd::Zero(m*N, m*N);
+
+    for (int i = 0; i < N; i++) {
+        Q_bar.block(i*n, i*n, n, n) = weights_.Q;
+        R_bar.block(i*m, i*m, m, m) = weights_.R;
+    }
+    Q_bar.block((N-1)*n, (N-1)*n, n, n) = weights_.Qf; // terminal cost
+
+    // Build S_bar
+    MatrixXd S_bar = MatrixXd::Zero(m*N, m*N);
+    for (int i = 0; i < N; i++)
+        S_bar.block(i*m, i*m, m, m) = weights_.S;
+
+
+    // Build P and q
+    P = Su.transpose() * Q_bar * Su + R_bar + D.transpose() * S_bar * D;
+    q = Su.transpose() * Q_bar * (x_free - x_ref) - D.transpose() * S_bar * d_prev;
+    }
