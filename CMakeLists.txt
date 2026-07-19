@@ -45,8 +45,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG        v2.13.6
+)
+FetchContent_MakeAvailable(pybind11)
 
-
+pybind11_add_module(mpc_py python/bindings/mpc_py.cpp)
+target_link_libraries(mpc_py PRIVATE mpc_controller gp_residual_model)
 
 
 add_library(bicycle_model
