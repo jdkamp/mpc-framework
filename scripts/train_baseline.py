@@ -23,12 +23,12 @@ class ViolationCounter(BaseCallback):
         self.log.append((self.num_timesteps, self.total))
         return True
     
-def main(total_timestep=100_000):
+def main(total_timesteps=20_000):
     env = LaneKeepingEnv()
     model = SAC("MlpPolicy", env, seed=0, verbose=1)
 
     violation_counter = ViolationCounter()
-    model.learn(total_timesteps=total_timestep, callback=violation_counter)
+    model.learn(total_timesteps=total_timesteps, callback=violation_counter)
 
     out = REPO_ROOT / "output" / "baseline_violations.csv"
     np.savetxt(out, np.array(violation_counter.log, dtype=int), delimiter=",",
