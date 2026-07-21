@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 #include "models/GPResidualModel.hpp"
+#include "models/BicycleModel.hpp"
 #include "mpc/SafetyFilter.hpp"
 
 namespace py = pybind11;
@@ -47,4 +48,9 @@ PYBIND11_MODULE(mpc_py, m) {
             py::keep_alive<1, 2>())          // the filter keeps the model alive
         .def("filter", &SafetyFilter::filter,
             py::arg("x0"), py::arg("u_rl"));
+
+    py::class_<BicycleModel, SystemModel>(m, "BicycleModel")
+        .def(py::init<double>(), py::arg("wheelbase"))
+        .def("dynamics", &BicycleModel::dynamics,
+            py::arg("x"), py::arg("u"));
 }

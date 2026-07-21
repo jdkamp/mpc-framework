@@ -2,23 +2,29 @@ import sys
 from pathlib import Path
 import numpy as np
 import json
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(REPO_ROOT / "python" / "envs"))
+sys.path.append(str(REPO_ROOT / "build"))
+
+mcp_missing = not any((REPO_ROOT / "build").glob("mpc_py*.so"))
 
 from lane_keeping_env import LaneKeepingEnv
 from gp_sigma import GPSigma
 
-
+@pytest.mark.skipif(mcp_missing, reason="mpc_py not built (run cmake --build build)")
 def test_parity_with_cpp():
-    ref = np.loadtxt(REPO_ROOT / "data" / "parity_reference.csv", delimiter=",", skiprows=1)
+    import mpc_py
     env = LaneKeepingEnv(k_true=0.0, sigma_scale=0.0)   # pure nominal bicycle
-    env.reset(seed=0)
-    env.x = np.array([0.0, 0.5, 0.2, 10.0])            # same start as the C++ main
+    bicycle = mpc_py.BicycleModel(2.7)
+    x = np.array([0.0, 0.5, 0.2, 10.0])
     u = np.array([0.05, 0.2])
     for t in range(100):
-        assert np.allclose(env.x, ref[t], atol=1e-12), f"diverged at step {t}"
-        env.x = env._dynamics(env.x, u)
+        x_cpp = x + env.dt * bicycle.dynamics(x, u)
+        x_py = env._dynamics(x, u)
+        assert np.allclose(x_py, x_cpp, atol=1e-12), f"diverged at step {t}"
+        x = x_py
 
 def test_check_env():
     from gymnasium.utils.env_checker import check_env
