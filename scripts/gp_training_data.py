@@ -14,7 +14,7 @@ y = df['residual'].values
 kernel = (ConstantKernel(0.001, constant_value_bounds=(1e-5, 0.1)) *
           RBF(length_scale=[3.0, 0.2], length_scale_bounds=[(0.5, 8.0), (0.05, 0.5)]))
 noise = 1e-5
-gpr = GaussianProcessRegressor(kernel=kernel, alpha=noise, n_restarts_optimizer=5)
+gpr = GaussianProcessRegressor(kernel=kernel, alpha=noise, n_restarts_optimizer=5, random_state=0)
 gpr.fit(X, y)
 print("Learned kernel: ", gpr.kernel_)
 
@@ -33,6 +33,13 @@ params = {
     "X_train": X.tolist(),
     "y_train": y.tolist(),
 }
+
+test_points = np.array([[5.0, 0.1], [10.0, 0.3], [3.0, -0.2], [8.0, 0.0]])
+ref_means, ref_stds = gpr.predict(test_points, return_std=True)
+params["reference_checks"] = [
+    {"v": float(v), "delta": float(d), "mean": float(m), "var": float(s**2)}
+    for (v, d), m, s in zip(test_points, ref_means, ref_stds)
+]
 with open('data/gp_params.json', 'w') as f:
     json.dump(params, f)
 
