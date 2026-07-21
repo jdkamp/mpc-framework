@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 import numpy as np
 import pytest
+import json
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(REPO_ROOT / "build")) # where CMake puts mpc_py.*.so
@@ -24,8 +25,10 @@ def make_filter():
 
 def test_gp_variance_matches_reference():
     gp = mpc_py.GPResidualModel(str(REPO_ROOT / "data" / "gp_params.json"), 2.7)
+    params = json.load(open(REPO_ROOT / "data" / "gp_params.json"))
+    chk = next(c for c in params["reference_checks"] if c["v"] == 10.0 and c["delta"] == 0.3)
     var = gp.variance(np.array([0.0, 0, 0, 10.0]), np.array([0.3, 0.0]))[2]
-    assert abs(var - 0.001710) < 1e-5 # TODO Read in variance from json file
+    assert abs(var - chk["var"]) < 1e-5
 
 
 def test_filter_pass_through():

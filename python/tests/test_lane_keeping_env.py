@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import numpy as np
+import json
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(REPO_ROOT / "python" / "envs"))
@@ -24,10 +25,12 @@ def test_check_env():
     check_env(LaneKeepingEnv())
 
 def test_gp_sigma_matches_cpp():
+    params = json.load(open(REPO_ROOT / "data" / "gp_params.json"))
     gp = GPSigma()
-    for v, d, var_ref in [(10, 0.3, 0.001710), (3, -0.2, 0.000004), (8, 0.0, 0.000033)]:
-        var = gp.sigma(v, d)**2
-        assert abs(var - var_ref) < 1e-5, f"mismatch at ({v}, {d}): {var:.6f} vs {var_ref}"
+    for chk in params["reference_checks"]:
+        var = gp.sigma(chk["v"], chk["delta"])**2
+        assert abs(var - chk["var"]) < 1e-5, f"mismatch at ({chk['v']}, {chk['delta']})"
+        
 
 def test_pd_holds_lane():
     env = LaneKeepingEnv()
