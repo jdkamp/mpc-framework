@@ -1,6 +1,6 @@
 # MPC Framework
 
-A generic Model Predictive Control (MPC) framework in C++17 that bridges classical Stochastic MPC with data-driven uncertainty.
+A generic Model Predictive Control (MPC) framework in C++17 that bridges classical Stochastic MPC handling data-driven uncertainty.
 
 ## Motivation
 
@@ -21,6 +21,15 @@ Three controllers drive the same vehicle under disturbances, with **identical we
 
 Over 10,000 disturbed steps, SMPC cuts constraint violations by ~50× and stays well inside its 5% chance-constraint budget (p = 0.95). Note that the learned mean alone (GP-MPC) barely helps: a better model does not make a controller safe, handling the model's *uncertainty* does. 
 
+### Safe reinforcement learning
+
+The same constraint handling becomes a **safety filter**: at each step it returns the action closest to the RL agent's proposal that keeps the SMPC chance constraints feasible (`min ||u0 - u_RL||^2`). Safe actions pass through untouched, unsafe ones are corrected.
+
+| SAC training run - 20k-steps | Violations |
+|---|---|
+|Unfiltered agent | 69 |
+| **Filtered agent** | **3** |
+
 ## Features
 
 **Stochastic MPC with learned uncertainty**
@@ -28,6 +37,11 @@ Over 10,000 disturbed steps, SMPC cuts constraint violations by ~50× and stays 
 - `GPResidualModel` — a Gaussian Process learning the model's residual *and* its own uncertainty from data. The GP mean (and its analytic derivative) enter the controller's linearization
 - `SMPCController` — propagates a closed-loop covariance tube and tightens state constraints via the Cantelli inequality, turning GP variance into chance constraints
 - Comparison demo (Deterministic MPC vs GP-MPC vs SMPC) and a Monte-Carlo violation-rate evaluation under disturbance
+
+**Safe reinforcement learning**
+- `SafetyFilter` - a predictive safety filter (subclass of `SMPCController`): given an RL action, returns the closest action that keeps the chance constraints feasible, passing safe actions through unchanged
+- `mpc_py` - pybind11 bindings exposing the models and the filter to Python
+- `LaneKeepingEnv` - a Gymnasium environment (kinematic bicycle + GP-shaped disturbance) with a Soft Actor-Critic (SAC, Stable-Baselines3) setup, trained with the filter in the loop
 
 **Core MPC**
 - Generic `SystemModel` interface — implement once, reuse the controller unchanged
@@ -54,7 +68,8 @@ MPCController
     └── SMPCController
         ├── takes a StochasticSystemModel& and probability p
         ├── propagates a closed-loop covariance tube along the horizon
-        └── tightens the state bound by Cantelli backoff (chance constraints)
+        ├── tightens the state bound by Cantelli backoff (chance constraints)
+        └── SafetyFilter (RL safety filter: min ||u0 - u_RL||^2)
 
 MPCWeights - Q, R, S cost matrices, Qf terminal cost (DARE)
 MPCLimits  - input, state, control-rate bounds
@@ -73,7 +88,7 @@ All dependencies are fetched automatically via CMake `FetchContent`:
 | [osqp-eigen](https://github.com/robotology/osqp-eigen) | 0.11.0 | C++ OSQP wrapper |
 | [GoogleTest](https://github.com/google/googletest) | 1.14.0 | Unit testing |
 | [nlohmann/json](https://github.com/nlohmann/json) | 3.11.3 | Parse the exported GP parameters |
-
+| [pybind11](https://github.com/pybind/pybind11) | 2.13.6 | Python bindings for the models and safety filter |
 
 Requires: CMake ≥ 3.14, a C++17 compiler.
 
@@ -90,7 +105,7 @@ mkdir -p data output
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install numpy pandas scikit-learn matplotlib
+pip install numpy pandas scikit-learn matplotlib gymnasium stable-baselines3
 ```
 
 ## Reproduce the results
@@ -113,6 +128,14 @@ python3 scripts/visualize_comparison.py    # -> output/comparison.png
 python3 scripts/visualize_mc.py            # -> output/mc_violations.png
 python3 scripts/visualize_ensemble.py      # -> output/ensemble.png
 ```
+
+4. **Safe reinforcement learning** - train SAC with and without the safety filter, then compare violation counts:
+```bash
+python3 scripts/train_baseline.py      # -> output/baseline_violations.csv
+python3 scripts/train_filtered.py      # -> output/filtered_violations.csv
+python3 scripts/visualize_training.py  # -> output/training_violations.png
+```
+The filtered run requires the `mpc_py` bindings, built as part of `cmake --build build`.
 
 ## Other examples
 Basic single-controller tracking (no GP):
@@ -143,6 +166,7 @@ include/
     mpc/
         MPCController.hpp
         SMPCController.hpp      # covariance tube + Cantelli tightening
+        SafetyFilter.hpp        # RL safety filter
 src/
     models/
         BicycleModel.cpp
@@ -150,11 +174,13 @@ src/
     mpc/
         MPCController.cpp
         SMPCController.cpp
+        SafetyFilter.cpp
 examples/
     lane_keeping/main.cpp
     path_following/main.cpp
     comparison/main.cpp         # Deterministic vs GP-MPC vs SMPC
     montecarlo/main.cpp         # violation-rate evaluation
+    safety_filter/main.cpp      # filtered vs. unfiltered agent
 tests/
     BicycleModelTest.cpp
     MPCControllerTest.cpp
@@ -163,10 +189,22 @@ tests/
 scripts/
     generate_gp_training_data.py
     gp_training_data.py         # trains GP, exports data/gp_params.json
+    train_baseline.py           # SAC without the safety filter
+    train_filtered.py           # SAC with the filter in the loop
     visualize_trajectory.py
     visualize_comparison.py
     visualize_mc.py
     visualize_ensemble.py
+    visualize_training.py
+python/
+    bindings/mpc_py.cpp         # pybind11 module
+    envs/
+        lane_keeping_env.py     # Gymnasium env (bicycle + GP disturbance)
+        filtered_env.py         # wraps the SafetyFilter around the agent
+        gp_sigma.py             # numpy GP variance (mirrors GPResidualModel)
+    tests/
+        test_bindings.py
+        test_lane_keeping_env.py
 ```
 
 ## Limitations and future work
@@ -176,7 +214,7 @@ scripts/
 - **Full state feedback:** The controller trusts the measured state `x0` exactly. Uncertainty in the state estimate itself (output-feedback SMPC) is not handled.
 
 **Future work: from a safe controller to safe learning**
-- **Predictive safety filter for reinforcement learning.** Reuse the SMPC constraint mechanism with a different objective (stay close to the agent's proposed action) to let an RL agent explore *safely during training*. Combined with periodic GP re-training on the collected data, the safe operating region grows as the model learns.
+- **Growing the safe set through GP re-training.** The predictive safety filter is now implemented and demonstrated (see *Safe reinforcement learning* above). The loop still to close: periodically re-train the GP on data collected under the filter, so the trustworthy region — and the agent's freedom — expands as the model learns.
 - **Learned trajectory prediction of other agents.** A neural network predicts surrounding vehicles' trajectories with per-step variance that grows along the horizon; the SMPC turns it into time-varying, uncertainty-proportional distance constraints.
 - **ML planners with uncertainty-aware tracking.** A learned planner proposes (possibly aggressive) reference trajectories; the controller follows them only as far as its model confidence reaches.
 - **Other system models:** extend beyond the kinematic bicycle model.
