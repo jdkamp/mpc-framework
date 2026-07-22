@@ -8,7 +8,7 @@ using Eigen::MatrixXd;
 using json = nlohmann::json;
 
 GPResidualModel::GPResidualModel(const std::string& params_path, double wheelbase) :
-    bicycle_model_(wheelbase)
+    bicycle_model_(wheelbase)   // TODO: generalize, currently this is a GPResidual Bicycle Model
 {
     // Open and parse JSON file
     std::ifstream f(params_path);
