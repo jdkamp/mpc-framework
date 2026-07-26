@@ -7,8 +7,8 @@ import json
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(REPO_ROOT / "build")) # where CMake puts mpc_py.*.so
 
-mcp_missing = not any((REPO_ROOT / "build").glob("mpc_py*.so"))
-pytestmark = pytest.mark.skipif(mcp_missing, reason="mpc_py not built (run cmake --build build)")
+mpc_missing = not any((REPO_ROOT / "build").glob("mpc_py*.so"))
+pytestmark = pytest.mark.skipif(mpc_missing, reason="mpc_py not built (run cmake --build build)")
 
 import mpc_py
 

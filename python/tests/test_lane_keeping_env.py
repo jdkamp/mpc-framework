@@ -8,12 +8,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(REPO_ROOT / "python" / "envs"))
 sys.path.append(str(REPO_ROOT / "build"))
 
-mcp_missing = not any((REPO_ROOT / "build").glob("mpc_py*.so"))
+mpc_missing = not any((REPO_ROOT / "build").glob("mpc_py*.so"))
 
 from lane_keeping_env import LaneKeepingEnv
 from gp_sigma import GPSigma
 
-@pytest.mark.skipif(mcp_missing, reason="mpc_py not built (run cmake --build build)")
+@pytest.mark.skipif(mpc_missing, reason="mpc_py not built (run cmake --build build)")
 def test_parity_with_cpp():
     import mpc_py
     env = LaneKeepingEnv(k_true=0.0, sigma_scale=0.0)   # pure nominal bicycle
