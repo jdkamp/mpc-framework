@@ -3,6 +3,7 @@
 
 #include "SystemModel.hpp"
 #include <Eigen/Dense>
+#include <OsqpEigen/OsqpEigen.h>
 
 // Configuration parameters for the MPC controller
 struct MPCConfig {
@@ -93,10 +94,16 @@ private:
     Eigen::VectorXd previous_u_; // for delta_u constraints
 
 protected:
+    // Model
     const SystemModel& model_;
+    // MPC inputs
     MPCConfig config_;
     MPCWeights weights_;
     MPCLimits limits_;
+    // Solver
+    OsqpEigen::Solver solver_;
+    bool solver_initialized_ = false;
+    Eigen::SparseMatrix<double> P_stored_, A_stored_;
 
     // Per-step state bounds for the lifted QP, shifted to the input variables.
     // x_free is the predicted free response (Sx*x0 + lifted affine offset, i.e. U = 0).
