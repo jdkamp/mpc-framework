@@ -7,6 +7,15 @@ using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using Eigen::SparseMatrix;
 
+
+// Overwrite an existing sparse matrix's values from a freshly-built dense one
+static void refill(SparseMatrix<double>& sparse, const MatrixXd& dense) {
+    for (int k = 0; k < sparse.outerSize(); k++)
+        for (SparseMatrix<double>::InnerIterator it(sparse, k); it; ++it)
+            it.valueRef() = dense(it.row(), it.col());
+}
+
+
 // MPCWeights
 MPCWeights::MPCWeights(const SystemModel& model) : // default to identity weights
     Q(MatrixXd::Identity(model.state_dim(), model.state_dim())),
@@ -128,7 +137,13 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     VectorXd c = config_.dt * (model_.dynamics(x0, u0) - A * x0 - B * u0);
 
 
-    // Build Sx (n*N x n) and Su (n*N x m*N)
+    // Build Sx (n*N x n) and Su (n*N x m*N), the lifted free/forced response:
+    //   X = Sx*x0 + Su*U  (+ affine offset).  Sx stacks the A_d powers; Su is block
+    //   lower-triangular since state i+1 depends only on inputs u_0..u_i:
+    // Sx:  x0        Su:     u0       u1       u2
+    //   x1 [  A  ]     x1 [  B        0        0   ]
+    //   x2 [ A^2 ]     x2 [  A B      B        0   ]
+    //   x3 [ A^3 ]     x3 [ A^2 B    A B       B   ]
     MatrixXd Sx = MatrixXd::Zero(n*N, n);
     MatrixXd Su = MatrixXd::Zero(n*N, m*N);
 
@@ -154,11 +169,17 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     VectorXd x_free = Sx * x0 + C_lift;   // predicted trajectory for U = 0
 
 
-    // d_prev for delta_u constraints
+    // d_prev for delta_u
     VectorXd d_prev = VectorXd::Zero(m*N);
     d_prev.head(m) = previous_u_;
 
-    // Build D for delta_u constraints
+    // Build D, the control-increment operator: D*U = [u0; u1-u0; u2-u1; ...].
+    // Used for the rate constraints and the rate-weight cost.
+    //         u0      u1      u2
+    //    [    I       0       0   ]    u0
+    //    [   -I       I       0   ]    u1 - u0
+    //    [    0      -I       I   ]    u2 - u1
+
     MatrixXd D = MatrixXd::Zero(m*N, m*N);
     for (int k = 0; k < N; k++) {
         D.block(k*m, k*m, m, m) = MatrixXd::Identity(m, m);
@@ -166,6 +187,9 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
             D.block(k*m, (k-1)*m, m, m) = -MatrixXd::Identity(m, m);
     }
 
+    // QP cost over the inputs U:  minimize  1/2 U'PU + q'U
+    //   P = Hessian (quadratic cost: state tracking, input, and rate weights)
+    //   q = gradient (linear tilt from the tracking error and the previous input)
     MatrixXd P;
     VectorXd q;
     build_cost(Su, x_free, x_ref, D, d_prev, P, q);
@@ -174,14 +198,19 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     MatrixXd P_aug = MatrixXd::Zero(nVars, nVars);
     P_aug.topLeftCorner(nU, nU) = P;
     P_aug.bottomRightCorner(nS, nS) = 1e-6 * MatrixXd::Identity(nS, nS);
-    SparseMatrix<double> P_sparse = P_aug.sparseView();
 
     VectorXd q_aug(nVars);
     q_aug << q, rho * VectorXd::Ones(nS);  // L1 penalty on each slack
 
 
     // Input, state, and rate constraints
-    // upper and lower bounds
+    //                     u-cols   s-cols         lb             ub
+    // 1) Input           [ I     |    0    ]      u_min          u_max
+    // 2) State upper     [ Su    |   -I    ]      -inf           x_upper
+    // 3) State lower     [ Su    |   +I    ]      x_lower        +inf
+    // 4) Rate            [ D     |    0    ]      du_min+d_prev  du_max+d_prev
+    // 5) Slack >= 0      [ 0     |    I    ]      0              +inf
+    
     int nCon = nU + nS + nS + nU + nS;     // input + state-upper + state-lower + rate + slack>=0
     MatrixXd A_con_dense(nCon, nVars);
     A_con_dense.setZero();
@@ -219,35 +248,61 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     lb.segment(r, nS).setConstant(0.0);
     ub.segment(r, nS).setConstant(INF);
 
-    SparseMatrix<double> A_con = A_con_dense.sparseView();
-
-
 
     // Solve QP
-    auto t_start = std::chrono::high_resolution_clock::now();   // Start timer
     
+    auto t_start = std::chrono::high_resolution_clock::now();   // Start timer
     // Setup solver
-    OsqpEigen::Solver solver;
-    solver.settings()->setVerbosity(false);
-    solver.data()->setNumberOfVariables(nVars);
-    solver.data()->setNumberOfConstraints(nCon);
-    solver.data()->setLinearConstraintsMatrix(A_con);
-    solver.data()->setLowerBound(lb);
-    solver.data()->setUpperBound(ub);
-    solver.data()->setHessianMatrix(P_sparse);
-    solver.data()->setGradient(q_aug);
-    solver.initSolver();
+    if (!solver_initialized_) {
+        solver_.settings()->setVerbosity(false);
+        solver_.settings()->setWarmStart(true);
+        solver_.settings()->setMaxIteration(10000);
+        solver_.data()->setNumberOfVariables(nVars);
+        solver_.data()->setNumberOfConstraints(nCon);
+        solver_.data()->setLowerBound(lb);
+        solver_.data()->setUpperBound(ub);
+
+        // Capture a superset sparsity pattern: the first linearization can have Jacobian
+        // entries that are zero at x0 but become nonzero as the state evolves, so its pattern
+        // is too sparse and refill would drop those terms later, corrupting P (non-quasidefinite
+        // KKT). Force the dense blocks full before capturing the pattern, then refill real values.
+        MatrixXd P_pattern = P_aug;
+        P_pattern.topLeftCorner(nU, nU).setOnes();       // Su^T Q Su block is structurally dense
+        MatrixXd A_pattern = A_con_dense;
+        A_pattern.block(nU, 0, nS, nU).setOnes();        // state-upper Su block
+        A_pattern.block(nU + nS, 0, nS, nU).setOnes();   // state-lower Su block
+        P_stored_ = P_pattern.sparseView();
+        A_stored_ = A_pattern.sparseView();
+        refill(P_stored_, P_aug);
+        refill(A_stored_, A_con_dense);
+
+        solver_.data()->setHessianMatrix(P_stored_);
+        solver_.data()->setLinearConstraintsMatrix(A_stored_);
+        solver_.data()->setGradient(q_aug);
+        solver_.initSolver();
+        solver_initialized_ = true;
+    } else {
+        refill(P_stored_, P_aug);
+        refill(A_stored_, A_con_dense);
+        solver_.updateGradient(q_aug);
+        solver_.updateBounds(lb, ub);
+        solver_.updateHessianMatrix(P_stored_);
+        solver_.updateLinearConstraintsMatrix(A_stored_);    
+    }
+    
     // Run sover
-    solver.solveProblem();
+    solver_.solveProblem();
     
     auto t_end = std::chrono::high_resolution_clock::now();     // End timer
     solve_time_ = std::chrono::duration<double>(t_end - t_start).count();
 
     // Output processing
     // Extract first control input
-    VectorXd Z = solver.getSolution();
+    VectorXd Z = solver_.getSolution();
     if (!Z.allFinite() || Z.cwiseAbs().maxCoeff() > 1e6) {
         std::cout << "Bad solve \n";
+        solver_.clearSolverVariables();  // reset the warm-start iterate so a bad solve
+                                         // does not poison (cascade into) the next one
         return previous_u_;   // bad solve (infeasible under disturbance) -> hold last command
     }
     VectorXd U = Z.head(nU);
@@ -280,23 +335,19 @@ void MPCController::build_cost(const MatrixXd& Su,
     int m = model_.input_dim();
     int N = config_.N;
 
-    // Build Q_bar and R_bar
+    // Build Q_bar, R_bar, S_bar
     MatrixXd Q_bar = MatrixXd::Zero(n*N, n*N);
     MatrixXd R_bar = MatrixXd::Zero(m*N, m*N);
+    MatrixXd S_bar = MatrixXd::Zero(m*N, m*N);
 
     for (int i = 0; i < N; i++) {
         Q_bar.block(i*n, i*n, n, n) = weights_.Q;
         R_bar.block(i*m, i*m, m, m) = weights_.R;
+        S_bar.block(i*m, i*m, m, m) = weights_.S;
     }
     Q_bar.block((N-1)*n, (N-1)*n, n, n) = weights_.Qf; // terminal cost
-
-    // Build S_bar
-    MatrixXd S_bar = MatrixXd::Zero(m*N, m*N);
-    for (int i = 0; i < N; i++)
-        S_bar.block(i*m, i*m, m, m) = weights_.S;
-
 
     // Build P and q
     P = Su.transpose() * Q_bar * Su + R_bar + D.transpose() * S_bar * D;
     q = Su.transpose() * Q_bar * (x_free - x_ref) - D.transpose() * S_bar * d_prev;
-    }
+}
