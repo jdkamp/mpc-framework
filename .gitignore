@@ -78,4 +78,5 @@ python/runs/
 
 # output files
 output/
-data/
+data/*
+!data/gp_params.json

@@ -29,7 +29,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(osqp)
 
-set(osqp_DIR "${CMAKE_BINARY_DIR}/_deps/osqp-build")
+if(NOT TARGET osqp::osqp AND TARGET osqp)
+    add_library(osqp::osqp ALIAS osqp)
+endif()
+if(NOT TARGET osqp::osqpstatic AND TARGET osqpstatic)
+    add_library(osqp::osqpstatic ALIAS osqpstatic)
+endif()
+set(OSQP_IS_V1 TRUE)
+set(OSQP_IS_V1_FINAL TRUE)
 
 FetchContent_Declare(
     osqp-eigen

@@ -69,23 +69,30 @@ TEST(SafetyFilterTest, KeepsUnsafeAgent) {
 
     VectorXd x(4); x << 0.0, 0.0, 0.0, 10.0;
     std::mt19937 rng(0);
+    // Portable Gaussian
+    auto uniform01 = [&rng]() {
+        return (rng() - std::mt19937::min()) /
+               (static_cast<double>(std::mt19937::max()) - std::mt19937::min() + 1.0);
+    };
     double max_py = 0.0;
 
     for(int t = 0; t < 50; t++) {
         // the unsafe PD agent, resurrected: goal beyond the bound
         double delta = std::clamp(0.1 * (12.0 - x(1)) - 1.0 * x(2), -0.5, 0.5);
         VectorXd u = filter.filter(x, (VectorXd(2) << delta, 0.0).finished());
-        
+
         VectorXd dx = bicyle.dynamics(x, u);
         dx(2) += -k_true * x(3) * x(3) * u(0);
         x = x + config.dt * dx;
         double sigma = std::sqrt(gp.variance(x, u)(2));
-        std::normal_distribution<double> noise(0.0, sigma);
-        x(2) += noise(rng);
+        double u1 = uniform01(), u2 = uniform01();
+        double z = std::sqrt(-2.0 * std::log(u1 + 1e-12)) * std::cos(2.0 * M_PI * u2);
+        x(2) += sigma * z;
 
         max_py = std::max(max_py, x(1));
     }
 
+    std::cout << "[DEBUG max_py] " << max_py << std::endl;
     EXPECT_LT(max_py, 9.0);     // never exceedes
     EXPECT_GT(max_py, 8.0);     // and went near limit
 }
