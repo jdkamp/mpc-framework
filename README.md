@@ -4,58 +4,11 @@ A generic Model Predictive Control (MPC) framework in C++17 that bridges classic
 
 ## Motivation
 
-Classical MPC assumes a known, exact model. Real systems have unmodeled dynamics, parameter uncertainty, and disturbances that no hand-tuned noise matrix fully captures. The conventional approach to add robustness, by detuning the controller weights, buys safety with *uniform* conservatism. Performance is given up everywhere, even where the model is perfectly accurate.
+Classical MPC assumes a known, exact model. Real systems have unmodeled dynamics, parameter uncertainty, and disturbances. The conventional approach to add robustness, by detuning the controller weights, buys safety with conservatism. Performance is given up everywhere, even where the model is accurate.
 
-This project takes the opposite approach. A Gaussian Process learns the model's residual and its own uncertainty, and the controller tightens its constraints in proportion to that uncertainty. Conservatism **only where the learned model is not trustworthy**, full performance everywhere else. The `SystemModel` interface keeps this model-agnostic: a physical model and a learned model (GP, neural network) are interchangeable without touching the controller.
-
-
-## Results
-
-Three controllers drive the same vehicle under disturbances, with **identical weights and limits**, so any difference comes from constraint handling alone:
-
-| Controller | Model knowledge | Handles uncertainty | Violations |
-|---|---|---|---|
-| Deterministic MPC | nominal | no | 18.9% |
-| Gaussian Process MPC (GP-MPC) | + learned mean | no | 17.3% |
-| **Stochastic MPC (SMPC)** | + learned variance | yes | **0.35%** |
-
-Over 10,000 disturbed steps, SMPC cuts constraint violations by ~50× and stays well inside its 5% chance-constraint budget (p = 0.95).
-
-### Safe reinforcement learning
-
-The same constraint handling becomes a **safety filter**: at each step it returns the action closest to the RL agent's proposal that keeps the SMPC chance constraints feasible (`min ||u0 - u_RL||^2`). Safe actions pass through untouched, unsafe ones are corrected.
-
-| SAC training run - 20k-steps | Violations |
-|---|---|
-|Unfiltered agent | 69 |
-| **Filtered agent** | **3** |
-
-### Safe learning: the safe set grows as the model learns
-
-Closing the loop from *safe control* to *safe learning*: the filter retrains its GP on the residuals it collects while running. Each generation, the agent trains under the current filter, the GP re-fits on all data gathered so far, and the improved filter is swapped in.
-
-Starting from a deliberately uncertain *cold-start* GP, the filter first boxes the agent into the middle of the lane. As it learns the residual, its backoff shrinks and the safe region expands towards the true bound **with no constraint violations throughout**:
-
-| Filter | Effective safe boundary |
-|---|---|
-| Cold start (gen 0) | 0.83 m |
-| Generation 1 | 1.59 m |
-| Generation 4 | 1.78 m |
-| Learned (plateau) | 1.87 m  (true bound: 2.0 m) |
+This project takes another approach. A Gaussian Process learns the model's residual and its own uncertainty, and the controller tightens its constraints in proportion to that uncertainty. Conservatism only where the learned model is not trustworthy, full performance everywhere else.
 
 ## Features
-
-**Stochastic MPC with learned uncertainty**
-- `StochasticSystemModel` - interface for models that provide state-dependent variance
-- `GPResidualModel` - a Gaussian Process learning the model's residual *and* its own uncertainty from data. The GP mean (and its analytic derivative) enter the controller's linearization
-- `SMPCController` - propagates a closed-loop covariance tube and tightens state constraints via the Cantelli inequality, turning GP variance into chance constraints
-- Comparison demo (Deterministic MPC vs GP-MPC vs SMPC) and a Monte-Carlo violation-rate evaluation under disturbance
-
-**Safe reinforcement learning**
-- `SafetyFilter` - a predictive safety filter (subclass of `SMPCController`): given an RL action, returns the closest action that keeps the chance constraints feasible, passing safe actions through unchanged
-- `mpc_py` - pybind11 bindings exposing the models and the filter to Python
-- `LaneKeepingEnv` - a Gymnasium environment (kinematic bicycle + GP-shaped disturbance) with a Soft Actor-Critic (SAC, Stable-Baselines3) setup, trained with the filter in the loop
-- GP re-training - the filter collects residuals as it runs, periodically re-fits its GP, and swaps in the improved filter, so the safe region grows as the model learns.
 
 **Core MPC**
 - Generic `SystemModel` interface - implement once, reuse the controller unchanged
@@ -66,11 +19,63 @@ Starting from a deliberately uncertain *cold-start* GP, the filter first boxes t
 - Lane-keeping and path-following examples
 - Unit tests with Google Test
 
+**Stochastic MPC with learned uncertainty**
+- `StochasticSystemModel` - interface for models that provide state-dependent variance
+- `GPResidualModel` - a Gaussian Process learning the model's residual and its own uncertainty from data
+- `SMPCController` - propagates a closed-loop covariance tube and tightens state constraints via the Cantelli inequality, turning GP variance into chance constraints
+- Comparison demo (Deterministic MPC vs GP-MPC vs SMPC) and a Monte-Carlo violation-rate evaluation under disturbance
+
+**Safe reinforcement learning**
+- `SafetyFilter` - a predictive safety filter (subclass of `SMPCController`): given an RL action, returns the closest action that keeps the chance constraints feasible, passing safe actions through unchanged
+- `mpc_py` - pybind11 bindings exposing the models and the filter to Python
+- `LaneKeepingEnv` - a Gymnasium environment (kinematic bicycle + GP-shaped disturbance) with a Soft Actor-Critic (SAC, Stable-Baselines3) setup, trained with the filter in the loop
+- GP re-training - the filter collects residuals as it runs, periodically re-fits its GP, and swaps in the improved filter, so the safe region grows as the model learns
+
+## Results
+
+The SMPC controller drives the same system under disturbances, with identical weights and limits and is able to reduce the number of violations. A Gaussian Process MPC is also compared, which considers the learned mean without any variance.
+
+| Controller | Model knowledge | Handles uncertainty | Violations |
+|---|---|---|---|
+| Deterministic MPC | nominal | no | 18.9% |
+| Gaussian Process MPC (GP-MPC) | + learned mean | no | 17.3% |
+| Stochastic MPC (SMPC) | + learned variance | yes | 0.35% |
+
+SMPC cuts constraint violations by ~50× and stays well inside its 5% chance-constraint budget (p = 0.95).
+
+![Monte-Carlo trajectory ensemble vs constraint](docs/images/ensemble.png)
+
+The bottom row shows the mechanism: the covariance-tube backoffs the SMPC controller away from the bound, while the deterministic and GP-MPC controllers cross it.
+
+### Safe reinforcement learning
+
+The same constraint handling becomes a safety filter: at each step it returns the action closest to the RL agent's proposal that keeps the SMPC chance constraints feasible. Safe actions pass through untouched, unsafe ones are corrected.
+
+| SAC training run | Violations |
+|---|---|
+|Unfiltered agent | 69 |
+| **Filtered agent** | **3** |
+
+### Safe learning: the safe set grows as the model learns
+
+Closing the loop from safe control to safe learning: the filter retrains its GP on the residuals it collects while running.
+
+Starting from a deliberately uncertain cold-start GP, the filter first boxes the agent into the middle of the safe set. As it learns the residual, its backoff shrinks and the safe region expands towards the true bound with no constraint violations throughout:
+
+| Filter | Effective safe boundary |
+|---|---|
+| Cold start (gen 0) | 0.83 m |
+| Generation 1 | 1.59 m |
+| Generation 4 | 1.78 m |
+| Learned (plateau) | 1.87 m  (true bound: 2.0 m) |
+
+![Safe set grows across generations](docs/images/safe_learning_trajectories.png)
+
 ## Architecture
 
 ```
 SystemModel (abstract: dynamics, Jacobians, dims)
-    ├── BicycleModel (kinematic, state: [px, py, ψ, v], input: [δ, a])
+    ├── BicycleModel (kinematic bicycle model)
     └── StochasticSystemModel (adds variance(x,u) - state-dependent uncertainty)
         └── GPResidualModel (bicycle + GP-learned residual & variance)
 
@@ -80,7 +85,7 @@ MPCController
     ├── builds lifted QP (Sx, Su, Q_bar, R_bar)
     ├── solves via OSQP
     └── SMPCController
-        ├── takes a StochasticSystemModel& and probability p
+        ├── takes a StochasticSystemModel and probability p
         ├── propagates a closed-loop covariance tube along the horizon
         ├── tightens the state bound by Cantelli backoff (chance constraints)
         └── SafetyFilter (RL safety filter: min ||u0 - u_RL||^2)
@@ -114,7 +119,7 @@ cmake --build build
 mkdir -p data output
 ```
 
-## Python environment (for GP training and plots)
+## Python environment (for GP training, safe learning and plots)
 
 ```bash
 python3 -m venv .venv
@@ -124,7 +129,7 @@ pip install numpy pandas scikit-learn matplotlib gymnasium stable-baselines3
 
 ## Reproduce the results
 
-1. **Train the GP** - generates `data/gp_params.json` (required by the GP controllers) and the mean/variance surface plot `output/gp_surfaces.png`:
+1. **Train the GP** - generates `data/gp_params.json` and the mean/variance surface plot `output/gp_surfaces.png`:
 ```bash
 python3 scripts/generate_gp_training_data.py
 python3 scripts/gp_training_data.py
@@ -158,7 +163,7 @@ python3 scripts/visualize_safe_learning.py   # -> output/safe_learning/safe_lear
 ```
 
 ## Other examples
-Basic single-controller tracking (no GP):
+Basic single-controller tracking:
 ```bash
 ./build/lane_keeping
 python3 scripts/visualize_trajectory.py
@@ -206,6 +211,7 @@ tests/
     MPCControllerTest.cpp
     GPResidualModelTest.cpp
     SMPCControllerTest.cpp
+    SafetyFilterTest.cpp
 scripts/
     generate_gp_training_data.py
     gp_training_data.py         # trains GP, exports data/gp_params.json

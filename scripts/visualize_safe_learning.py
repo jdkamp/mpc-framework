@@ -33,7 +33,7 @@ for i, p in enumerate(params):
 
 plt.axhline(2.0, ls="--", color="red", label="true bound")
 plt.xlabel("step"); plt.ylabel("py [m]")
-plt.title("Safe set grows: the filter lets the agent nearer the bound each generation")
+plt.title("Safe set grows: the filter lets the agent nearer the bound each generation", fontsize=10)
 plt.legend(); plt.tight_layout()
-plt.savefig(gen_dir / "safe_learning_trajectories.png", dpi=150)
+plt.savefig(gen_dir / "safe_learning_trajectories.png", dpi=150, bbox_inches="tight")
 plt.show()
