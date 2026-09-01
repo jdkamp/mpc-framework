@@ -104,17 +104,31 @@ target_link_libraries(gp_residual_model PUBLIC
     nlohmann_json::nlohmann_json
 )
 
+add_library(agent_predictor
+    src/models/ConstantVelocityAgent.cpp
+)
+
+target_include_directories(agent_predictor PUBLIC
+    include
+)
+
+target_link_libraries(agent_predictor PUBLIC
+    Eigen3::Eigen
+)
+
 add_executable(tests
     tests/BicycleModelTest.cpp
     tests/MPCControllerTest.cpp
     tests/GPResidualModelTest.cpp
     tests/SMPCControllerTest.cpp
     tests/SafetyFilterTest.cpp
+    tests/AgentPredictorTest.cpp
 )
 target_link_libraries(tests
     bicycle_model
     mpc_controller
     gp_residual_model
+    agent_predictor
     GTest::gtest_main
 )
 target_compile_definitions(tests PRIVATE

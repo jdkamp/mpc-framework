@@ -2,6 +2,7 @@
 #include "models/BicycleModel.hpp"
 #include "mpc/MPCController.hpp"
 #include "mpc/SMPCController.hpp"
+#include "models/ConstantVelocityAgent.hpp"
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
@@ -37,58 +38,46 @@ public:
     }
 };
 
-// With zero variance, SMPC must reduce exactly to determenistic MPC (backoff = 0)
-TEST(SMPCControllerTest, NoVarianceMatchesDeterminstic) {
+class SMPCControllerTest : public ::testing::Test {
+protected:
+    BicycleModel det_model{2.7};
+    MPCConfig config;
+    MPCWeights weights{det_model};
+    MPCLimits limits{det_model};
+    VectorXd x0{4}, x_ref{4};
+
+    void SetUp() override {
+        config.N = 30; config.dt = 0.01;
+        weights.Q = Vector4d(0, 10, 50, 10).asDiagonal();
+        weights.R = Vector2d(1, 10).asDiagonal();
+        VectorXd x_trim = (VectorXd(4) << 0, 0, 0, 5).finished();
+        weights.Qf = weights.compute_dare(det_model, x_trim, config.dt);
+        limits.x_max(1) = 1.0;
+        x0 << 0, 0, 0, 5;
+        x_ref << 0, 2, 0, 5;
+    }
+};
+
+// With zero variance, SMPC must reduce exactly to deterministic MPC (backoff = 0)
+TEST_F(SMPCControllerTest, NoVarianceMatchesDeterministic) {
     ConsVarianceModel model(0.0);
-    BicycleModel det_model(2.7);
 
-    MPCConfig config; 
-    config.N = 30; 
-    config.dt = 0.01;
-    MPCWeights weights(det_model);
-    weights.Q = Vector4d(0, 10, 50, 10).asDiagonal();
-    weights.R = Vector2d(1, 10).asDiagonal();
-    VectorXd x_trim = (VectorXd(4) << 0, 0, 0, 5).finished();
-    weights.Qf = weights.compute_dare(det_model, x_trim, config.dt);
-
-    MPCLimits limits(det_model);
-    limits.x_max(1) = 1.0;
-
-    VectorXd x0(4);    x0    << 0, 0, 0, 5;
-    VectorXd x_ref(4); x_ref << 0, 2, 0, 5;
-
-    MPCController det_mpc (det_model, config, weights, limits);
+    MPCController det_mpc(det_model, config, weights, limits);
     SMPCController smpc(model, config, weights, limits, 0.95);
 
     det_mpc.solve(x0, x_ref.replicate(config.N, 1));
     smpc.solve(x0, x_ref.replicate(config.N, 1));
 
-    EXPECT_TRUE(smpc.get_predicted_trajectory().isApprox(   // get predicted trajectories are equal
+    EXPECT_TRUE(smpc.get_predicted_trajectory().isApprox(
                 det_mpc.get_predicted_trajectory(), 1e-6
     ));
 }
 
-// Non-zero variance must back the predicted trajectoy off from an active constraint
-TEST(SMPCControllerTest, TighterThanNominal) {
+// Non-zero variance must back the predicted trajectory off from an active constraint
+TEST_F(SMPCControllerTest, TighterThanNominal) {
     ConsVarianceModel model(0.001); // uncertainty on py
-    BicycleModel det_model(2.7);
 
-    MPCConfig config; 
-    config.N = 30; 
-    config.dt = 0.01;
-    MPCWeights weights(det_model);
-    weights.Q = Vector4d(0, 10, 50, 10).asDiagonal();
-    weights.R = Vector2d(1, 10).asDiagonal();
-    VectorXd x_trim = (VectorXd(4) << 0, 0, 0, 5).finished();
-    weights.Qf = weights.compute_dare(det_model, x_trim, config.dt);
-
-    MPCLimits limits(det_model);
-    limits.x_max(1) = 1.0;
-
-    VectorXd x0(4);    x0    << 0, 0, 0, 5;
-    VectorXd x_ref(4); x_ref << 0, 2, 0, 5; // Push py up past the bound
-
-    MPCController det_mpc (det_model, config, weights, limits);
+    MPCController det_mpc(det_model, config, weights, limits);
     SMPCController smpc(model, config, weights, limits, 0.95);
 
     det_mpc.solve(x0, x_ref.replicate(config.N, 1));
@@ -98,4 +87,42 @@ TEST(SMPCControllerTest, TighterThanNominal) {
     double smpc_max = smpc.get_predicted_trajectory().col(1).maxCoeff();
 
     EXPECT_LT(smpc_max, detmpc_max);    // SMPC backs off - stays further below the bound
+}
+
+// An agent far from the ego must not change the solution
+TEST_F(SMPCControllerTest, FarAgentIsNoOp) {
+    ConsVarianceModel model(0.001);
+
+    SMPCController smpc_no_agent(model, config, weights, limits, 0.95);
+    SMPCController smpc_agent(model, config, weights, limits, 0.95);
+
+    ConstantVelocityAgent agent(0.01, 0.1);     // sigma0^2 = 0.01, growth q = 0.1
+    agent.observe(100.0, 0.0);                  // at py = 100, far from the ego
+    smpc_agent.set_agent(&agent, 0.5);          // r_safe = 0.5
+
+    smpc_no_agent.solve(x0, x_ref.replicate(config.N, 1));
+    smpc_agent.solve(x0, x_ref.replicate(config.N, 1));
+
+    EXPECT_TRUE(smpc_agent.get_predicted_trajectory().isApprox(
+                smpc_no_agent.get_predicted_trajectory(), 1e-9));
+}
+
+// An agent above the ego must tighten the py bound below the static limit
+TEST_F(SMPCControllerTest, AgentTightensBound) {
+    ConsVarianceModel model(0.001);
+
+    SMPCController smpc_no_agent(model, config, weights, limits, 0.95);
+    SMPCController smpc_agent(model, config, weights, limits, 0.95);
+
+    ConstantVelocityAgent agent(0.01, 0.1);     // sigma0^2 = 0.01, growth q = 0.1
+    agent.observe(1.0, 0.0);                    // at py = 1.0, not moving
+    smpc_agent.set_agent(&agent, 0.5);          // r_safe = 0.5 -> bound near 0.5, under x_max = 1.0
+
+    smpc_no_agent.solve(x0, x_ref.replicate(config.N, 1));
+    smpc_agent.solve(x0, x_ref.replicate(config.N, 1));
+
+    double no_agent_max = smpc_no_agent.get_predicted_trajectory().col(1).maxCoeff();
+    double agent_max = smpc_agent.get_predicted_trajectory().col(1).maxCoeff();
+
+    EXPECT_LT(agent_max, no_agent_max);     // the agent pushes the ego further down
 }
