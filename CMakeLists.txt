@@ -184,3 +184,15 @@ target_link_libraries(safety_filter
 target_compile_definitions(safety_filter PRIVATE
     GP_PARAMS_PATH="${CMAKE_SOURCE_DIR}/data/gp_params.json"
 )
+
+add_executable(agent_avoidance
+    examples/agent_avoidance/main.cpp
+)
+target_link_libraries(agent_avoidance
+    mpc_controller
+    gp_residual_model
+    agent_predictor
+)
+target_compile_definitions(agent_avoidance PRIVATE
+    GP_PARAMS_PATH="${CMAKE_SOURCE_DIR}/data/gp_params.json"
+)
