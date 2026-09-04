@@ -300,9 +300,13 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // Extract first control input
     VectorXd Z = solver_.getSolution();
     if (!Z.allFinite() || Z.cwiseAbs().maxCoeff() > 1e6) {
-        std::cout << "Bad solve \n";
-        solver_.clearSolverVariables();  // reset the warm-start iterate so a bad solve
-                                         // does not poison (cascade into) the next one
+        std::cout << "Bad solve" << std::endl;
+        //Reset the solver so the next call rebuilds it from scratch so 
+        // a bad solve does not poison (cascade into) the next one
+        solver_.clearSolver();
+        solver_.data()->clearHessianMatrix();
+        solver_.data()->clearLinearConstraintsMatrix();
+        solver_initialized_ = false;
         return previous_u_;   // bad solve (infeasible under disturbance) -> hold last command
     }
     VectorXd U = Z.head(nU);
