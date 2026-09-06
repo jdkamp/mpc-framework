@@ -25,6 +25,12 @@ This project takes another approach. A Gaussian Process learns the model's resid
 - `SMPCController` - propagates a closed-loop covariance tube and tightens state constraints via the Cantelli inequality, turning GP variance into chance constraints
 - Comparison demo (Deterministic MPC vs GP-MPC vs SMPC) and a Monte-Carlo violation-rate evaluation under disturbance
 
+**Moving agents as chance constraints**
+- `AgentPredictor` - interface for predicting another traffic participant over the horizon: per-step mean position and a variance that grows the further
+- `ConstantVelocityAgent` - simpe predictor
+- Time-varying constraint tightening in `SMPCController`: the ego's own tube variance and the agent's prediction variance are combined
+- Cut-in demo and Monte-Carlo study comparing prediction against the chance-constrained formulation
+
 **Safe reinforcement learning**
 - `SafetyFilter` - a predictive safety filter (subclass of `SMPCController`): given an RL action, returns the closest action that keeps the chance constraints feasible, passing safe actions through unchanged
 - `mpc_py` - pybind11 bindings exposing the models and the filter to Python
@@ -46,6 +52,21 @@ SMPC cuts constraint violations by ~50× and stays well inside its 5% chance-con
 ![Monte-Carlo trajectory ensemble vs constraint](https://github.com/user-attachments/assets/c7bd69df-fc58-474f-8b3a-2aad0ab2adb1)
 
 The bottom row shows the mechanism: the covariance-tube backoffs the SMPC controller away from the bound, while the deterministic and GP-MPC controllers cross it.
+
+### Moving agents as chance constraints
+
+The same tightening extends to other traffic participants. An agent holds station beside the ego and then cuts into its lane at an unannounced moment.
+
+Both controllers use the same predictor and the same mean prediction. They differ only in whether the agent's prediction variance enters the constraint:
+
+| Prediction | Agent variance | Violations (100 runs) | Closest approach | Mean margin |
+|---|---|---|---|---|
+| Deterministic (mean only) | none | 41% | -0.37 m | 0.01 m |
+| **Chance constrained** | grows linear over prediction | **0%** | **0.13 m** | 0.49 m |
+
+The deterministic controller tracks the predicted boundary exactly and has nothing left when the prediction turns out to be wrong. The chance-constrained one holds a margin proportional to how far ahead it is predicting.
+
+![Agent cut-in: deterministic vs chance-constrained](https://github.com/user-attachments/assets/7f67aba1-c6e2-4b86-8965-b79d14f9d09c)
 
 ### Safe reinforcement learning
 
@@ -148,7 +169,13 @@ python3 scripts/visualize_mc.py            # -> output/mc_violations.png
 python3 scripts/visualize_ensemble.py      # -> output/ensemble.png
 ```
 
-4. **Safe reinforcement learning** - train SAC with and without the safety filter, then compare violation counts:
+4. **Moving-agent avoidance** - cut-in scenario and the violation-rate comparison:
+```bash
+./build/agent_avoidance                       # -> output/agent_{deterministic,chance}.csv
+python3 scripts/visualize_agent_avoidance.py  # -> output/agent_avoidance.png
+```
+
+5. **Safe reinforcement learning** - train SAC with and without the safety filter, then compare violation counts:
 ```bash
 python3 scripts/train_baseline.py      # -> output/baseline_violations.csv
 python3 scripts/train_filtered.py      # -> output/filtered_violations.csv
@@ -156,7 +183,7 @@ python3 scripts/visualize_training.py  # -> output/training_violations.png
 ```
 The filtered run requires the `mpc_py` bindings, built as part of `cmake --build build`.
 
-5. **Safe learning (growing safe set)** - re-train the filter's GP on data it collects, generation by generation:
+6. **Safe learning (growing safe set)** - re-train the filter's GP on data it collects, generation by generation:
 ```bash
 python3 scripts/train_safe_learning.py       # -> output/safe_learning/gp_gen*.json, effective_bounds.csv
 python3 scripts/visualize_safe_learning.py   # -> output/safe_learning/safe_learning_trajectories.png
@@ -185,9 +212,11 @@ python3 scripts/visualize_trajectory.py
 include/
     SystemModel.hpp             # abstract interface
     StochasticSystemModel.hpp   # + variance(x,u)
+    AgentPredictor.hpp          # other-agent prediction: mean + growing variance
     models/
         BicycleModel.hpp
         GPResidualModel.hpp     # GP-learned residual + uncertainty
+        ConstantVelocityAgent.hpp
     mpc/
         MPCController.hpp
         SMPCController.hpp      # covariance tube + Cantelli tightening
@@ -196,6 +225,7 @@ src/
     models/
         BicycleModel.cpp
         GPResidualModel.cpp
+        ConstantVelocityAgent.cpp
     mpc/
         MPCController.cpp
         SMPCController.cpp
@@ -206,12 +236,14 @@ examples/
     comparison/main.cpp         # Deterministic vs GP-MPC vs SMPC
     montecarlo/main.cpp         # violation-rate evaluation
     safety_filter/main.cpp      # filtered vs. unfiltered agent
+    agent_avoidance/main.cpp    # cut-in scenario + violation-rate Monte-Carlo
 tests/
     BicycleModelTest.cpp
     MPCControllerTest.cpp
     GPResidualModelTest.cpp
     SMPCControllerTest.cpp
     SafetyFilterTest.cpp
+    AgentPredictorTest.cpp
 scripts/
     generate_gp_training_data.py
     gp_training_data.py         # trains GP, exports data/gp_params.json
@@ -225,6 +257,7 @@ scripts/
     visualize_ensemble.py
     visualize_training.py
     visualize_safe_learning.py
+    visualize_agent_avoidance.py
 python/
     bindings/mpc_py.cpp         # pybind11 module
     envs/
