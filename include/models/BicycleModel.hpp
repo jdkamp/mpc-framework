@@ -11,7 +11,7 @@ namespace mpc {
 class BicycleModel : public SystemModel {
 public:
     // Construct kinematic bicycle model with the wheelbase L
-    BicycleModel(double wheelbase) : L_(wheelbase) {}
+    explicit BicycleModel(double wheelbase) : L_(wheelbase) {}
 
     // SystemModel interface
     Eigen::VectorXd dynamics(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;

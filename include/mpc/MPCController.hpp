@@ -21,7 +21,7 @@ struct MPCWeights {
     Eigen::MatrixXd S;  // S weights for delta_u (control input change)
 
     // Default to identity Q/Qf/R and zero S
-    MPCWeights(const SystemModel& model);
+    explicit MPCWeights(const SystemModel& model);
 
     // Compute optimal terminal cost Qf via DARE using the current Q and R
     Eigen::MatrixXd compute_dare(
@@ -69,7 +69,7 @@ struct MPCLimits {
     Eigen::VectorXd delta_u_max; // maximum change in control input
 
     // Default to no constraints (+/- 1e10)
-    MPCLimits(const SystemModel& model);
+    explicit MPCLimits(const SystemModel& model);
 };
 
 // MPC controller - solves a QP at each time step using a linearized system model
