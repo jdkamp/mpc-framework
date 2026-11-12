@@ -85,6 +85,12 @@ struct [[nodiscard]] SolveResult {
     Eigen::VectorXd u;  // control input to apply
 };
 
+// QP cost over the inputs U: minimize 1/2 U'PU + q'U
+struct QpCost {
+    Eigen::MatrixXd P;  // Hessian
+    Eigen::VectorXd q;  // gradient
+};
+
 // MPC controller - solves a QP at each time step using a linearized system model
 class MPCController {
 public:
@@ -130,13 +136,11 @@ protected:
     // Builds the QP cost over the inputs, before the slack augmentation. Base: reference
     // tracking. Subclasses override to change the objective (e.g. Safety Filter: stay close
     // to proposed action).
-    virtual void build_cost(const Eigen::MatrixXd& Su,
-                            const Eigen::VectorXd& x_free,
-                            const Eigen::VectorXd& x_ref,
-                            const Eigen::MatrixXd& D,
-                            const Eigen::VectorXd& d_prev,
-                            Eigen::MatrixXd& P,
-                            Eigen::VectorXd& q) const;
+    virtual QpCost build_cost(const Eigen::MatrixXd& Su,
+                              const Eigen::VectorXd& x_free,
+                              const Eigen::VectorXd& x_ref,
+                              const Eigen::MatrixXd& D,
+                              const Eigen::VectorXd& d_prev) const;
 };
 
 } // namespace mpc

@@ -55,12 +55,12 @@ VectorXd SMPCController::state_upper_bounds(const VectorXd& x_free, const Vector
         int n = model_->state_dim();
         int N = config_.N;
         double c = std::sqrt(p_ / (1.0 - p_));
-        AgentPrediction pred = agent_->predict(N, config_.dt);
+        auto [agent_mean, agent_var] = agent_->predict(N, config_.dt);
         VectorXd tube_var = tube_variances(x0);
 
         for (int k = 0; k < N; k++) {
-            double combined = c * std::sqrt(tube_var(k*n + 1) + pred.variance(k));  // backoff on combined std dev: tube + agent variances
-            double agent_ub = pred.mean(k) - r_safe_ - combined - x_free(k*n + 1);  // agent bound on py, shifted into QP's deviation space (-x_free)
+            double combined = c * std::sqrt(tube_var(k*n + 1) + agent_var(k));  // backoff on combined std dev: tube + agent variances
+            double agent_ub = agent_mean(k) - r_safe_ - combined - x_free(k*n + 1);  // agent bound on py, shifted into QP's deviation space (-x_free)
             ub(k*n + 1) = std::min(ub(k*n + 1), agent_ub);                          // tighter bound wins
         }
 

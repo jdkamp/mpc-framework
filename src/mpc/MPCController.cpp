@@ -206,9 +206,7 @@ SolveResult MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // QP cost over the inputs U:  minimize  1/2 U'PU + q'U
     //   P = Hessian (quadratic cost: state tracking, input, and rate weights)
     //   q = gradient (linear tilt from the tracking error and the previous input)
-    MatrixXd P;
-    VectorXd q;
-    build_cost(Su, x_free, x_ref, D, d_prev, P, q);
+    auto [P, q] = build_cost(Su, x_free, x_ref, D, d_prev);
 
     // Augmented P and q for slack
     MatrixXd P_aug = MatrixXd::Zero(nVars, nVars);
@@ -342,14 +340,12 @@ VectorXd MPCController::state_lower_bounds(const VectorXd& x_free, const VectorX
     return limits_.x_min.replicate(config_.N, 1) - x_free;
 }
 
-void MPCController::build_cost(const MatrixXd& Su,
-                              const VectorXd& x_free,
-                              const VectorXd& x_ref,
-                              const MatrixXd& D,
-                              const VectorXd& d_prev,
-                              MatrixXd& P,
-                              VectorXd& q) const {
-
+QpCost MPCController::build_cost(const MatrixXd& Su,
+                                 const VectorXd& x_free,
+                                 const VectorXd& x_ref,
+                                 const MatrixXd& D,
+                                 const VectorXd& d_prev) const {
+    QpCost cost;
     int n = model_->state_dim();
     int m = model_->input_dim();
     int N = config_.N;
@@ -367,8 +363,10 @@ void MPCController::build_cost(const MatrixXd& Su,
     Q_bar.block((N-1)*n, (N-1)*n, n, n) = weights_.Qf; // terminal cost
 
     // Build P and q
-    P = Su.transpose() * Q_bar * Su + R_bar + D.transpose() * S_bar * D;
-    q = Su.transpose() * Q_bar * (x_free - x_ref) - D.transpose() * S_bar * d_prev;
+    cost.P = Su.transpose() * Q_bar * Su + R_bar + D.transpose() * S_bar * D;
+    cost.q = Su.transpose() * Q_bar * (x_free - x_ref) - D.transpose() * S_bar * d_prev;
+
+    return cost;
 }
 
 } // namespace mpc
