@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "models/ConstantVelocityAgent.hpp"
+using namespace mpc;
 
 TEST(AgentPredictorTest, ConstantVelocityTest) {
     int N = 10;

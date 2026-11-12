@@ -8,6 +8,7 @@ using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using Eigen::Vector2d;
 using Eigen::Vector4d;
+using namespace mpc;
 
 // Bicycle dynamics + a constant, known covariance on py, let test the tube
 // logic with controlled uncertainty, independant of the GP

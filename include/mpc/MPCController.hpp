@@ -5,6 +5,8 @@
 #include <Eigen/Dense>
 #include <OsqpEigen/OsqpEigen.h>
 
+namespace mpc {
+
 // Configuration parameters for the MPC controller
 struct MPCConfig {
     int N;      // Prediction horizon 
@@ -123,5 +125,7 @@ protected:
                             Eigen::MatrixXd& P,
                             Eigen::VectorXd& q) const;
 };
+
+} // namespace mpc
 
 #endif // MPC_MPC_CONTROLLER_HPP

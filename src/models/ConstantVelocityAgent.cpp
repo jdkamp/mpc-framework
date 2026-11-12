@@ -2,6 +2,8 @@
 
 using Eigen::VectorXd;
 
+namespace mpc {
+
 ConstantVelocityAgent::ConstantVelocityAgent(double sigma0_sq, double q)
     : sigma0_sq_(sigma0_sq), q_(q) {}
 
@@ -23,3 +25,5 @@ AgentPrediction ConstantVelocityAgent::predict(int N, double dt) const {
 
     return pred;
 }
+
+} // namespace mpc

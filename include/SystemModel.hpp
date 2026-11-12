@@ -2,6 +2,8 @@
 #define MPC_SYSTEM_MODEL_HPP
 #include <Eigen/Dense>
 
+namespace mpc {
+
 // Abstract interface for system models used by MPCController.
 // Every concrete model must implement dynamics and Jacobians.
 class SystemModel {
@@ -25,5 +27,7 @@ public:
 
 };
 
+
+} // namespace mpc
 
 #endif // MPC_SYSTEM_MODEL_HPP

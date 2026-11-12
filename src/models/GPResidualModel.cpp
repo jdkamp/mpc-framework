@@ -7,6 +7,8 @@ using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using json = nlohmann::json;
 
+namespace mpc {
+
 GPResidualModel::GPResidualModel(const std::string& params_path, double wheelbase) :
     bicycle_model_(wheelbase)   // TODO: generalize, currently this is a GPResidual Bicycle Model
 {
@@ -145,3 +147,5 @@ double GPResidualModel::gp_mean_ddelta(double v, double delta) const {
     }
     return sum;
 }
+
+} // namespace mpc

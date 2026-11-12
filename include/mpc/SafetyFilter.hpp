@@ -3,6 +3,8 @@
 
 #include "mpc/SMPCController.hpp"
 
+namespace mpc {
+
 // Safety Filter: same tightening as the SMPC but the objective is minimal
 // intervention. Stay as close as possible to the agent's proposied actions
 // instead of tracling reference.
@@ -26,5 +28,7 @@ protected:
 private:
     Eigen::VectorXd u_rl_;  // stashed proposal, used in build cost
 };
+
+} // namespace mpc
 
 #endif // MPC_SAFETY_FILTER_HPP

@@ -5,6 +5,7 @@
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using Eigen::Vector2d;
+using namespace mpc;
 
 class MPCControllerTest : public ::testing::Test {
 protected:

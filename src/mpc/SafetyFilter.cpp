@@ -3,6 +3,8 @@
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
 
+namespace mpc {
+
 SafetyFilter::SafetyFilter(const StochasticSystemModel& model, MPCConfig config,
                 const MPCWeights& weights, const MPCLimits& limits, double p) :
     SMPCController(model, config, weights, limits, p),
@@ -35,3 +37,5 @@ void SafetyFilter::build_cost(const MatrixXd& /*Su*/,
 
 
 }
+
+} // namespace mpc

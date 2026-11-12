@@ -20,6 +20,7 @@
 using Eigen::VectorXd;
 using Eigen::Vector2d;
 using Eigen::Vector4d;
+using namespace mpc;
 
 // The agent holds station beside the ego, then cuts in at a fixed step. Until then 
 // the observed vy is 0, so constant-velocity extrapolation predicts a stationary agent

@@ -6,6 +6,8 @@
 #include "AgentPredictor.hpp"
 #include <Eigen/Dense>
 
+namespace mpc {
+
 // Stochastic MPC: propagates a closed-loop covariance tube along the prediction horizn
 // and tightens the state constraints via the Cantelli inequality, using the model's state-
 // dependant variance (e.g. GP-learned residual uncertainty)
@@ -32,5 +34,7 @@ private:
     // Stacked diag(Sigma_k), k = 1..N
     Eigen::VectorXd tube_variances(const Eigen::VectorXd& x0) const;
 };
+
+} // namespace mpc
 
 #endif // MPC_SMPC_CONTROLLER_HPP

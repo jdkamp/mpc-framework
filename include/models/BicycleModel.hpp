@@ -4,6 +4,8 @@
 #include "SystemModel.hpp"
 #include <Eigen/Dense>
 
+namespace mpc {
+
 // Kinematic bicycle model - concrete implementation of SystemModel.
 // State: [px, py, psi, v]  Input: [delta, a]
 class BicycleModel : public SystemModel {
@@ -24,5 +26,7 @@ private:
     static constexpr int STATE_DIM = 4; // state dimension xp, yp, psi, v
     static constexpr int INPUT_DIM = 2; // input dimension delta, a
 };
+
+} // namespace mpc
 
 #endif // MPC_BICYCLE_MODEL_HPP

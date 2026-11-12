@@ -5,6 +5,7 @@
 #include "mpc/SafetyFilter.hpp"
 
 namespace py = pybind11;
+using namespace mpc;
 
 PYBIND11_MODULE(mpc_py, m) {
     m.doc() = "C++ MPC/safety-filter bindings";

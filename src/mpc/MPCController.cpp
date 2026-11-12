@@ -7,6 +7,8 @@ using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using Eigen::SparseMatrix;
 
+namespace mpc {
+
 
 // Overwrite an existing sparse matrix's values from a freshly-built dense one
 static void refill(SparseMatrix<double>& sparse, const MatrixXd& dense) {
@@ -355,3 +357,5 @@ void MPCController::build_cost(const MatrixXd& Su,
     P = Su.transpose() * Q_bar * Su + R_bar + D.transpose() * S_bar * D;
     q = Su.transpose() * Q_bar * (x_free - x_ref) - D.transpose() * S_bar * d_prev;
 }
+
+} // namespace mpc

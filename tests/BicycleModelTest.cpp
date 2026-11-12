@@ -4,6 +4,7 @@
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
+using namespace mpc;
 
 class BicycleModelTest : public ::testing::Test {
 protected:

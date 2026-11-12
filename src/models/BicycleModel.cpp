@@ -4,6 +4,8 @@
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
 
+namespace mpc {
+
 VectorXd BicycleModel::dynamics(const VectorXd& x, const VectorXd& u) const {
     // system states
     // (px = x(0) and py = x(1) do not enter the kinematics)
@@ -65,3 +67,5 @@ int BicycleModel::state_dim() const {
 int BicycleModel::input_dim() const {
     return INPUT_DIM;
 }
+
+} // namespace mpc

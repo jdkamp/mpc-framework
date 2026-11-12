@@ -6,6 +6,7 @@
 #include <fstream>
 
 using Eigen::VectorXd;
+using namespace mpc;
 
 class GPResidualModelTest : public ::testing::Test {
     protected:

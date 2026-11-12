@@ -10,6 +10,7 @@
 using Eigen::VectorXd;
 using Eigen::Vector2d;
 using Eigen::Vector4d;
+using namespace mpc;
 
 int main() {
     int T = 50;

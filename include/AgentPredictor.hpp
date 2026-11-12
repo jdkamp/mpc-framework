@@ -2,6 +2,8 @@
 #define AGENT_PREDICTOR_HPP
 #include <Eigen/Dense>
 
+namespace mpc {
+
 // Per-step predection of another agent's lateral position over the horizn.
 struct  AgentPrediction{
     Eigen::VectorXd mean;       // py_agent at steps k = 1..N
@@ -19,5 +21,7 @@ public:
     virtual ~AgentPredictor() = default;
 };
 
+
+} // namespace mpc
 
 #endif // AGENT_PREDICTOR_HPP

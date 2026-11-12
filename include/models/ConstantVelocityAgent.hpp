@@ -4,6 +4,8 @@
 #include "AgentPredictor.hpp"
 #include <Eigen/Dense>
 
+namespace mpc {
+
 class ConstantVelocityAgent : public AgentPredictor {
 public:
     ConstantVelocityAgent(double sigma0_sq, double q);      // initial variance, growth rate
@@ -13,5 +15,7 @@ private:
     double py_{0.0}, vy_{0.0};
     double sigma0_sq_, q_;
 };
+
+} // namespace mpc
 
 #endif // CONSTANT_VELOCITY_AGENT_HPP

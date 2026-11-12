@@ -5,6 +5,8 @@
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
 
+namespace mpc {
+
 SMPCController::SMPCController(const StochasticSystemModel& model, MPCConfig config, 
                                 const MPCWeights& weights, const MPCLimits& limits, double p) :
     MPCController(model, config, weights, limits),  // Base gets Systemmodel as refrence
@@ -78,3 +80,5 @@ void SMPCController::set_agent(const AgentPredictor* agent, double r_safe) {
     agent_ = agent;
     r_safe_ = r_safe;
 }
+
+} // namespace mpc

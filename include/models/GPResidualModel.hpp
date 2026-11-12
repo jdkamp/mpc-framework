@@ -6,6 +6,8 @@
 #include <Eigen/Dense>
 #include <string>
 
+namespace mpc {
+
 class GPResidualModel : public StochasticSystemModel {
 public:
     // Construct GP residual model with the parameters path and wheelbase
@@ -44,5 +46,7 @@ private:
     double gp_mean_dv(double v, double delta) const;
     double gp_mean_ddelta(double v, double delta) const;
 };
+
+} // namespace mpc
 
 #endif // GP_RESIDUAL_MODEL_HPP

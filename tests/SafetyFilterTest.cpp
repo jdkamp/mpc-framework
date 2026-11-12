@@ -7,6 +7,7 @@
 #include <algorithm>
 
 using Eigen::VectorXd;
+using namespace mpc;
 
 class SafetyFilterTest : public ::testing::Test {
 protected:
