@@ -14,15 +14,15 @@ public:
     GPResidualModel(const std::string& params_path, double wheelbase);
 
     // SystemModel interface
-    Eigen::VectorXd dynamics(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
-    Eigen::MatrixXd jacobian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
-    Eigen::MatrixXd jacobian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
-    int state_dim() const override;
-    int input_dim() const override;
+    [[nodiscard]] Eigen::VectorXd dynamics(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
+    [[nodiscard]] Eigen::MatrixXd jacobian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
+    [[nodiscard]] Eigen::MatrixXd jacobian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
+    [[nodiscard]] int state_dim() const override;
+    [[nodiscard]] int input_dim() const override;
 
     // StochasticSystemModel interface
     // Diagonal process noise variance, GP uncertainty placed on the heading rate
-    Eigen::VectorXd variance(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
+    [[nodiscard]] Eigen::VectorXd variance(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
 
 
 private:
@@ -35,16 +35,16 @@ private:
     Eigen::VectorXd alpha_;          // GP dual coefficients
 
     // GP posterior mean: the learened residual correction at operating point (v, delta)
-    double gp_mean(double v, double delta) const;
+    [[nodiscard]] double gp_mean(double v, double delta) const;
     // GP posterior variance: model uncertainty at operating point (v, delta)
-    double gp_variance(double v, double delta) const;
+    [[nodiscard]] double gp_variance(double v, double delta) const;
 
     // RBF kernel function: similarity between two input points [v, delta]
-    double kernel(const Eigen::VectorXd& a, const Eigen::VectorXd& b) const;
+    [[nodiscard]] double kernel(const Eigen::VectorXd& a, const Eigen::VectorXd& b) const;
 
     // Partial derivates of the GP posterior mean (for the Jacobian contribution)
-    double gp_mean_dv(double v, double delta) const;
-    double gp_mean_ddelta(double v, double delta) const;
+    [[nodiscard]] double gp_mean_dv(double v, double delta) const;
+    [[nodiscard]] double gp_mean_ddelta(double v, double delta) const;
 };
 
 } // namespace mpc

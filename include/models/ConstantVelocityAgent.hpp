@@ -10,7 +10,7 @@ class ConstantVelocityAgent : public AgentPredictor {
 public:
     ConstantVelocityAgent(double sigma0_sq, double q);      // initial variance, growth rate
     void observe(double py, double vy) override;
-    AgentPrediction predict(int N, double dt) const override;
+    [[nodiscard]] AgentPrediction predict(int N, double dt) const override;
 private:
     double py_{0.0}, vy_{0.0};
     double sigma0_sq_, q_;

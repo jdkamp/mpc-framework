@@ -22,8 +22,8 @@ public:
     void set_agent(const AgentPredictor* agent, double r_safe);
 
 protected:
-    Eigen::VectorXd state_upper_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const override;
-    Eigen::VectorXd state_lower_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const override;
+    [[nodiscard]] Eigen::VectorXd state_upper_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const override;
+    [[nodiscard]] Eigen::VectorXd state_lower_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const override;
 
 private:
     std::shared_ptr<const StochasticSystemModel> smodel_;   // typed reference
@@ -32,9 +32,9 @@ private:
     double r_safe_ = 0.0;
 
     // Per-step constraint backoff (length n*N) from the propagated covariance tube
-    Eigen::VectorXd compute_backoff(const Eigen::VectorXd& x0) const;
+    [[nodiscard]] Eigen::VectorXd compute_backoff(const Eigen::VectorXd& x0) const;
     // Stacked diag(Sigma_k), k = 1..N
-    Eigen::VectorXd tube_variances(const Eigen::VectorXd& x0) const;
+    [[nodiscard]] Eigen::VectorXd tube_variances(const Eigen::VectorXd& x0) const;
 };
 
 } // namespace mpc

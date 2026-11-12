@@ -14,11 +14,11 @@ public:
     explicit BicycleModel(double wheelbase) : L_(wheelbase) {}
 
     // SystemModel interface
-    Eigen::VectorXd dynamics(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
-    Eigen::MatrixXd jacobian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
-    Eigen::MatrixXd jacobian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
-    int state_dim() const override;
-    int input_dim() const override;
+    [[nodiscard]] Eigen::VectorXd dynamics(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
+    [[nodiscard]] Eigen::MatrixXd jacobian_x(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
+    [[nodiscard]] Eigen::MatrixXd jacobian_u(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;
+    [[nodiscard]] int state_dim() const override;
+    [[nodiscard]] int input_dim() const override;
 
 
 private:

@@ -16,7 +16,7 @@ public:
     virtual void observe(double py, double vy) = 0;
 
     // Predict N steps ahead with the size dt.
-    virtual AgentPrediction predict(int N, double dt) const = 0;
+    [[nodiscard]] virtual AgentPrediction predict(int N, double dt) const = 0;
 
     virtual ~AgentPredictor() = default;
 };

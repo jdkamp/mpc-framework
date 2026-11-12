@@ -17,6 +17,7 @@ public:
     SolveResult filter(const Eigen::VectorXd& x0, const Eigen::VectorXd& u_rl);
 
 protected:
+    [[nodiscard]]
     QpCost build_cost(const Eigen::MatrixXd& Su,
                       const Eigen::VectorXd& x_free,
                       const Eigen::VectorXd& x_ref,

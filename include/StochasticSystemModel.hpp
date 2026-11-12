@@ -9,7 +9,7 @@ namespace mpc {
 class StochasticSystemModel : public SystemModel {
 public:
     // Returns the variance of the system model
-    virtual Eigen::VectorXd variance(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const = 0;
+    [[nodiscard]] virtual Eigen::VectorXd variance(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const = 0;
 
 };
 

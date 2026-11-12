@@ -265,7 +265,7 @@ SolveResult MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
 
     // Solve QP
     
-    auto t_start = std::chrono::high_resolution_clock::now();   // Start timer
+    auto t_start = std::chrono::steady_clock::now();   // Start timer
     // Setup solver
     if (!solver_initialized_) {
         solver_.settings()->setVerbosity(false);
@@ -307,7 +307,7 @@ SolveResult MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // Run sover
     solver_.solveProblem();
     
-    auto t_end = std::chrono::high_resolution_clock::now();     // End timer
+    auto t_end = std::chrono::steady_clock::now();     // End timer
     solve_time_ = std::chrono::duration<double>(t_end - t_start).count();
 
     // Output processing
