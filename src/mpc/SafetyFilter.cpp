@@ -11,7 +11,7 @@ SafetyFilter::SafetyFilter(const StochasticSystemModel& model, MPCConfig config,
     u_rl_(VectorXd::Zero(model.input_dim()))
 {}
 
-VectorXd SafetyFilter::filter(const VectorXd& x0, const VectorXd& u_rl) {
+SolveResult SafetyFilter::filter(const VectorXd& x0, const VectorXd& u_rl) {
     u_rl_ = u_rl;
     return solve(x0, VectorXd::Zero(model_.state_dim() * config_.N));
 }

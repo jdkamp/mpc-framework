@@ -85,7 +85,7 @@ SimResult run_sim(SMPCController& controller,
         double vy_a = agent_sim.vy_last;
         agent.observe(py_a, vy_a);
 
-        VectorXd u = controller.solve(x, x_ref.replicate(config.N, 1));
+        VectorXd u = controller.solve(x, x_ref.replicate(config.N, 1)).u;
 
         // Lateral clearance: negative means the ego is inside the agent's safety radius.
         double margin = py_a - r_safe - x(1);

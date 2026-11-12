@@ -9,8 +9,8 @@ namespace mpc {
 
 // Configuration parameters for the MPC controller
 struct MPCConfig {
-    int N;      // Prediction horizon 
-    double dt;  // time step [s]
+    int N = 0;      // Prediction horizon 
+    double dt = 0.0;  // time step [s]
     
 };
 
@@ -72,6 +72,18 @@ struct MPCLimits {
     explicit MPCLimits(const SystemModel& model);
 };
 
+// Outcome of one solve. The fallback criterion is unchanged: the solution is
+// rejected if it is non-finite or diverged, and the previous input is held.
+enum class SolveStatus {
+    Solved,         // QP solution accepcted
+    HeldPrevious    // solution rejected, previous input returned
+};
+
+struct [[nodiscard]] SolveResult {
+    SolveStatus status;
+    Eigen::VectorXd u;  // control input to apply
+};
+
 // MPC controller - solves a QP at each time step using a linearized system model
 class MPCController {
 public:
@@ -80,7 +92,7 @@ public:
     
     // Solve the MPC problem from state x0 tracking x_ref(n*N) over prediction horizon N
     // Returns the first optimal control input [delta, a]
-    Eigen::VectorXd solve(const Eigen::VectorXd& x0, const Eigen::VectorXd& x_ref);
+    SolveResult solve(const Eigen::VectorXd& x0, const Eigen::VectorXd& x_ref);
     
     // Returns the predicted state trajectory from the last solve() call
     Eigen::MatrixXd get_predicted_trajectory() const;

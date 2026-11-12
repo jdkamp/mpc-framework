@@ -2,6 +2,9 @@
 #include <cmath>
 #include <OsqpEigen/OsqpEigen.h>
 #include <chrono>
+#include <stdexcept>
+#include <string>
+
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
@@ -102,7 +105,15 @@ MPCController::MPCController(const SystemModel& model, MPCConfig config, const M
     model_(model), 
     config_(config), 
     weights_(weights),
-    limits_(limits) { }
+    limits_(limits) 
+{
+    if (config_.N <= 0)
+        throw std::invalid_argument(
+            "MPCConfig.N must be > 0, got " + std::to_string(config_.N));
+    if (!(config_.dt > 0.0))
+        throw std::invalid_argument(
+            "MPCConfig.dt must be > 0, got " + std::to_string(config_.dt));
+}
 
 MatrixXd MPCController::get_predicted_trajectory() const {
     return Eigen::Map<const Eigen::MatrixXd>(predicted_trajectory_.data(),                  // Map the predicted trajectory to a matrix of shape (N, state_dim)
@@ -113,7 +124,7 @@ double MPCController::get_solve_time() const {
     return solve_time_;
 }
 
-VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
+SolveResult MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     int n = model_.state_dim();
     int m = model_.input_dim();
     int N = config_.N;
@@ -302,14 +313,13 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // Extract first control input
     VectorXd Z = solver_.getSolution();
     if (!Z.allFinite() || Z.cwiseAbs().maxCoeff() > 1e6) {
-        std::cout << "Bad solve" << std::endl;
         //Reset the solver so the next call rebuilds it from scratch so 
         // a bad solve does not poison (cascade into) the next one
         solver_.clearSolver();
         solver_.data()->clearHessianMatrix();
         solver_.data()->clearLinearConstraintsMatrix();
         solver_initialized_ = false;
-        return previous_u_;   // bad solve (infeasible under disturbance) -> hold last command
+        return {SolveStatus::HeldPrevious, previous_u_};   // bad solve (infeasible under disturbance) -> hold last command
     }
     VectorXd U = Z.head(nU);
 
@@ -318,7 +328,7 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // Store previous control for delta_u constraints in next iteration
     previous_u_ = U.segment(0, m);
     
-    return U.segment(0, m);
+    return {SolveStatus::Solved, U.segment(0, m)};
 }
 
 VectorXd MPCController::state_upper_bounds(const VectorXd& x_free, const VectorXd& /*x0*/) const {

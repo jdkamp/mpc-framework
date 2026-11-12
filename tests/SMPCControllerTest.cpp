@@ -66,8 +66,8 @@ TEST_F(SMPCControllerTest, NoVarianceMatchesDeterministic) {
     MPCController det_mpc(det_model, config, weights, limits);
     SMPCController smpc(model, config, weights, limits, 0.95);
 
-    det_mpc.solve(x0, x_ref.replicate(config.N, 1));
-    smpc.solve(x0, x_ref.replicate(config.N, 1));
+    ASSERT_EQ(det_mpc.solve(x0, x_ref.replicate(config.N, 1)).status, SolveStatus::Solved);
+    ASSERT_EQ(smpc.solve(x0, x_ref.replicate(config.N, 1)).status, SolveStatus::Solved);
 
     EXPECT_TRUE(smpc.get_predicted_trajectory().isApprox(
                 det_mpc.get_predicted_trajectory(), 1e-6
@@ -81,8 +81,8 @@ TEST_F(SMPCControllerTest, TighterThanNominal) {
     MPCController det_mpc(det_model, config, weights, limits);
     SMPCController smpc(model, config, weights, limits, 0.95);
 
-    det_mpc.solve(x0, x_ref.replicate(config.N, 1));
-    smpc.solve(x0, x_ref.replicate(config.N, 1));
+    ASSERT_EQ(det_mpc.solve(x0, x_ref.replicate(config.N, 1)).status, SolveStatus::Solved);
+    ASSERT_EQ(smpc.solve(x0, x_ref.replicate(config.N, 1)).status, SolveStatus::Solved);
 
     double detmpc_max = det_mpc.get_predicted_trajectory().col(1).maxCoeff();
     double smpc_max = smpc.get_predicted_trajectory().col(1).maxCoeff();
@@ -101,8 +101,8 @@ TEST_F(SMPCControllerTest, FarAgentIsNoOp) {
     agent.observe(100.0, 0.0);                  // at py = 100, far from the ego
     smpc_agent.set_agent(&agent, 0.5);          // r_safe = 0.5
 
-    smpc_no_agent.solve(x0, x_ref.replicate(config.N, 1));
-    smpc_agent.solve(x0, x_ref.replicate(config.N, 1));
+    ASSERT_EQ(smpc_no_agent.solve(x0, x_ref.replicate(config.N, 1)).status, SolveStatus::Solved);
+    ASSERT_EQ(smpc_agent.solve(x0, x_ref.replicate(config.N, 1)).status, SolveStatus::Solved);
 
     EXPECT_TRUE(smpc_agent.get_predicted_trajectory().isApprox(
                 smpc_no_agent.get_predicted_trajectory(), 1e-9));
@@ -119,8 +119,8 @@ TEST_F(SMPCControllerTest, AgentTightensBound) {
     agent.observe(1.0, 0.0);                    // at py = 1.0, not moving
     smpc_agent.set_agent(&agent, 0.5);          // r_safe = 0.5 -> bound near 0.5, under x_max = 1.0
 
-    smpc_no_agent.solve(x0, x_ref.replicate(config.N, 1));
-    smpc_agent.solve(x0, x_ref.replicate(config.N, 1));
+    ASSERT_EQ(smpc_no_agent.solve(x0, x_ref.replicate(config.N, 1)).status, SolveStatus::Solved);
+    ASSERT_EQ(smpc_agent.solve(x0, x_ref.replicate(config.N, 1)).status, SolveStatus::Solved);
 
     double no_agent_max = smpc_no_agent.get_predicted_trajectory().col(1).maxCoeff();
     double agent_max = smpc_agent.get_predicted_trajectory().col(1).maxCoeff();

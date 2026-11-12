@@ -18,7 +18,7 @@ def probe_trajectory(safety_filter, steps=40):
     ys = []
     for _ in range(steps):
         x = probe.x
-        u = safety_filter.filter(np.asarray(x), np.array([0.3, 0.0]))  # full lock
+        u = safety_filter.filter(np.asarray(x), np.array([0.3, 0.0])).u  # full lock
         probe.x = probe._dynamics(x, u)
         ys.append(probe.x[1])                                          # store py
     return ys

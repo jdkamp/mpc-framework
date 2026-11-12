@@ -1,5 +1,6 @@
 import gymnasium as gym
 import numpy as np
+import mpc_py
 
 class SafetyFilterWrapper(gym.Wrapper):
     """Passes every agent action through a safety filter before the plant sees it"""
@@ -12,7 +13,8 @@ class SafetyFilterWrapper(gym.Wrapper):
 
     def step(self, action):
         x = self.env.unwrapped.x    # Full [px, py, psi, v] before the step
-        u_safe = self.filter.filter(np.asarray(x), np.asarray(action, dtype=np.float64))
+        res = self.filter.filter(np.asarray(x), np.asarray(action, dtype=np.float64))
+        u_safe = res.u
         obs, r, term, trunc, info = self.env.step(u_safe)
 
         if self.bicycle is not None:
@@ -23,4 +25,5 @@ class SafetyFilterWrapper(gym.Wrapper):
             residual = observed_yaw_rate - nominal_yaw_rate
             self.data.append([x[3], u_safe[0], residual])       # v, delta, residual
 
+        info["filter_held"] = (res.status == mpc_py.SolveStatus.HeldPrevious)
         return obs, r, term, trunc, info

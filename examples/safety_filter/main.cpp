@@ -72,7 +72,7 @@ int main() {
     flt << "t,py,delta_rl,delta_filtered\n";
     for (int t = 0; t < T; t++) {
         VectorXd u_rl = agent(x);
-        VectorXd u = filter.filter(x, u_rl);
+        VectorXd u = filter.filter(x, u_rl).u;
         flt << t << "," << x(1) << "," << u_rl(0) << "," << u(0) << "\n";
         x = plant(x, u);
     }

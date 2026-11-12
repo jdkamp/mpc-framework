@@ -68,7 +68,7 @@ int main() {
         
 
         // Solve MPC problem
-        VectorXd u = mpc.solve(x, x_ref_traj);
+        VectorXd u = mpc.solve(x, x_ref_traj).u;
         VectorXd du = u - u_prev;
 
         // Print state and input

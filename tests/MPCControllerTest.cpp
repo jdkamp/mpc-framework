@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "models/BicycleModel.hpp"
 #include "mpc/MPCController.hpp"
+#include <cmath>
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
@@ -42,7 +43,7 @@ TEST_F(MPCControllerTest, NoControlDeviation) {
     VectorXd x_ref(4); x_ref = x0;  // reference state is the same as initial state
 
     MPCController mpc(model, config, weights, limits);
-    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     // Expect no control input
     EXPECT_NEAR(u(0), 0, 1e-6);
@@ -56,12 +57,12 @@ TEST_F(MPCControllerTest, PxControlDeviation) {
     // Small px cost 
     weights.Q(0,0) = 1.0;  // low cost on px deviation
     MPCController mpc_low(model, config, weights, limits);
-    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     // With higher px cost, input should be more aggressive to correct px deviation
     weights.Q(0,0) = 10.0;  // high cost on px deviation
     MPCController mpc_high(model, config, weights, limits);
-    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     EXPECT_GT(std::abs(u_high(1)), std::abs(u_low(1)));  
 }
@@ -73,12 +74,12 @@ TEST_F(MPCControllerTest, PyControlDeviation) {
     // Small py cost 
     weights.Q(1,1) = 1.0;  // low cost on py deviation
     MPCController mpc_low(model, config, weights, limits);
-    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     // With higher py cost, input should be more aggressive to correct py deviation
     weights.Q(1,1) = 10.0;  // high cost on py deviation
     MPCController mpc_high(model, config, weights, limits);
-    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     EXPECT_GT(std::abs(u_high(0)), std::abs(u_low(0)));  
 }
@@ -94,12 +95,12 @@ TEST_F(MPCControllerTest, PsiControlDeviation) {
     // Small psi cost
     weights.Q(2,2) = 1.0;  // low cost on psi deviation
     MPCController mpc_low(model, config, weights, limits);
-    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     // With higher psi cost, input should be more aggressive to correct psi deviation
     weights.Q(2,2) = 100.0;  // high cost on py deviation
     MPCController mpc_high(model, config, weights, limits);
-    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     EXPECT_GT(std::abs(u_high(0)), std::abs(u_low(0)));  
 }
@@ -111,12 +112,12 @@ TEST_F(MPCControllerTest, VelControlDeviation) {
     // Small vel cost 
     weights.Q(3,3) = 1.0;  // low cost on vel deviation
     MPCController mpc_low(model, config, weights, limits);
-    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u_low = mpc_low.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     // With higher vel cost, input should be more aggressive to correct vel deviation
     weights.Q(3,3) = 10.0;  // high cost on py deviation
     MPCController mpc_high(model, config, weights, limits);
-    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u_high = mpc_high.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     EXPECT_GT(std::abs(u_high(1)), std::abs(u_low(1)));  
 }
@@ -127,7 +128,7 @@ TEST_F(MPCControllerTest, InputConstraints) {
 
     // Without input constraints, verify unconstrained input is large enough to matter
     MPCController mpc_free(model, config, weights, limits);
-    VectorXd u = mpc_free.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u = mpc_free.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     EXPECT_GE(u(0), 0.1);  // u(0) >= u_min(0)
     EXPECT_GE(u(1), 0.5);  // u(1) >= u_min(1)
@@ -137,7 +138,7 @@ TEST_F(MPCControllerTest, InputConstraints) {
     limits.u_max = (VectorXd(2) << 0.1, 0.5).finished();  // min steering angle, min acceleration
 
     MPCController mpc_constrained(model, config, weights, limits);
-    u = mpc_constrained.solve(x0,  x_ref.replicate(config.N, 1));
+    u = mpc_constrained.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     EXPECT_LE(u(0), limits.u_max(0) + 1e-3);  // u(0) <= u_max(0) + small tolerance
     EXPECT_LE(u(1), limits.u_max(1) + 1e-3);  // u(1) <= u_max(1) + small tolerance
@@ -149,14 +150,14 @@ TEST_F(MPCControllerTest, RateConstraints) {
 
     // Without rate constraints, verify unconstrained input is large enough to matter
     MPCController mpc_free(model, config, weights, limits);
-    VectorXd u_free = mpc_free.solve(x0, x_ref.replicate(config.N, 1));
+    VectorXd u_free = mpc_free.solve(x0, x_ref.replicate(config.N, 1)).u;
     EXPECT_GT(std::abs(u_free(0)), 0.05);
 
     // With tight rate constraints
     limits.delta_u_min = (VectorXd(2) << -0.05, -0.5).finished();
     limits.delta_u_max = (VectorXd(2) <<  0.05,  0.5).finished();
     MPCController mpc_con(model, config, weights, limits);
-    VectorXd u_con = mpc_con.solve(x0, x_ref.replicate(config.N, 1));
+    VectorXd u_con = mpc_con.solve(x0, x_ref.replicate(config.N, 1)).u;
     EXPECT_LE(u_con(0),  0.05 + 1e-2);
     EXPECT_GE(u_con(0), -0.05 - 1e-2);
     EXPECT_LE(u_con(1),  0.5 + 1e-2);
@@ -169,12 +170,12 @@ TEST_F(MPCControllerTest, RateCost) {
 
     // Without rate cost - u_prev=0, so first du = u
     MPCController mpc_free(model, config, weights, limits);
-    VectorXd u_free = mpc_free.solve(x0, x_ref.replicate(config.N, 1));
+    VectorXd u_free = mpc_free.solve(x0, x_ref.replicate(config.N, 1)).u;
 
     // With high rate cost - first input should be smaller (smoother)
     weights.S = Vector2d(100.0, 100.0).asDiagonal();
     MPCController mpc_smooth(model, config, weights, limits);
-    VectorXd u_smooth = mpc_smooth.solve(x0, x_ref.replicate(config.N, 1));
+    VectorXd u_smooth = mpc_smooth.solve(x0, x_ref.replicate(config.N, 1)).u;
 
     EXPECT_LT(std::abs(u_smooth(0)), std::abs(u_free(0)));
     EXPECT_LT(std::abs(u_smooth(1)), std::abs(u_free(1)));
@@ -188,7 +189,7 @@ TEST_F(MPCControllerTest, StateConstraints) {
     VectorXd x_ref(4); x_ref << 0, -1, 0, 5;  // reference below boundary
 
     MPCController mpc(model, config, weights, limits);
-    mpc.solve(x0, x_ref.replicate(config.N, 1));
+    ASSERT_EQ(mpc.solve(x0, x_ref.replicate(config.N, 1)).status, SolveStatus::Solved);
 
     // check py stays >= 0 across all horizon steps
     for (int k = 0; k < config.N; k++)
@@ -214,7 +215,7 @@ TEST_F(MPCControllerTest, PredictedTrajectory) {
     VectorXd x_ref(4); x_ref << 1, 1, 1, 5;  // px, py, psi, vel
 
     MPCController mpc(model, config, weights, limits);
-    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1));
+    VectorXd u = mpc.solve(x0,  x_ref.replicate(config.N, 1)).u;
 
     MatrixXd traj = mpc.get_predicted_trajectory();
 
@@ -246,7 +247,7 @@ TEST_F(MPCControllerTest, ControlConvergence) {
     
     VectorXd x = x0;
     for(int t = 0; t < T; t++) {
-        VectorXd u = mpc.solve(x,  x_ref.replicate(config.N, 1));
+        VectorXd u = mpc.solve(x,  x_ref.replicate(config.N, 1)).u;
         x = x + config.dt * model.dynamics(x, u);
     }
 
@@ -263,7 +264,7 @@ TEST_F(MPCControllerTest, SoftConstraintStaysFeasible) {
     VectorXd x0(4); x0 << 0, 0, 0, 5;
     VectorXd x_ref = x0;
 
-    VectorXd u = mpc.solve(x0, x_ref.replicate(config.N, 1));
+    VectorXd u = mpc.solve(x0, x_ref.replicate(config.N, 1)).u;
     EXPECT_GT(mpc.get_predicted_trajectory().col(1).maxCoeff(), 
         limits.x_max(1));   // Controller needs to violate constraints
     EXPECT_TRUE(u.allFinite());     // Sovler is feasable
@@ -278,7 +279,7 @@ TEST_F(MPCControllerTest, PredictionMatchesEulerStep) {
     VectorXd x_ref = x0.replicate(config.N, 1);
     // Sovle MPC
     MPCController mpc(model, config, weights, limits);
-    VectorXd u_ret = mpc.solve(x0, x_ref);
+    VectorXd u_ret = mpc.solve(x0, x_ref).u;
     MatrixXd pred = mpc.get_predicted_trajectory();
 
     // Euler dynamic
@@ -288,4 +289,24 @@ TEST_F(MPCControllerTest, PredictionMatchesEulerStep) {
     for (int i = 0; i < 4; i++)
         EXPECT_NEAR(pred(0, i), x_euler(i), 1e-5);
 
+}
+
+TEST_F(MPCControllerTest, RejectsNonPositiveHorizn) {
+    config.N = 0;
+    EXPECT_THROW(MPCController(model, config, weights, limits), std::invalid_argument);
+}
+
+TEST_F(MPCControllerTest, RejectsNonPositivedt) {
+    config.dt = 0;
+    EXPECT_THROW(MPCController(model, config, weights, limits), std::invalid_argument);
+}
+
+// A NaN state makes the QP solution non-finite, the controller must report that
+// and hold the previous input instead of returning garbage.
+TEST_F(MPCControllerTest, HoldsPreviousInputOnInvalidSolution) {
+    MPCController mpc(model, config, weights, limits);
+    VectorXd x0(4); x0 << 0, NAN, 0, 5;
+    SolveResult r = mpc.solve(x0, VectorXd::Zero(4 * config.N));
+    EXPECT_EQ(r.status, SolveStatus::HeldPrevious);
+    EXPECT_TRUE(r.u.isZero());  // orevious input starts at zero
 }

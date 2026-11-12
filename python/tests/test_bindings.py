@@ -33,11 +33,11 @@ def test_gp_variance_matches_reference():
 
 def test_filter_pass_through():
     f, gp = make_filter()
-    u = f.filter(np.array([0.0, 0, 0, 10.0]), np.array([0.1, 0.0]))
+    u = f.filter(np.array([0.0, 0, 0, 10.0]), np.array([0.1, 0.0])).u
     assert abs(u[0] - 0.1) < 1e-4 and abs(u[1]) < 1e-4
 
 
 def test_filter_blocks_unsafe():
     f, gp = make_filter()
-    u = f.filter(np.array([0.0, 8.0, 0.3, 10.0]), np.array([0.4, 0.0]))
+    u = f.filter(np.array([0.0, 8.0, 0.3, 10.0]), np.array([0.4, 0.0])).u
     assert u[0] < 0.1 # mirror of the C++ BlocksUnsafeAction test

@@ -41,6 +41,15 @@ PYBIND11_MODULE(mpc_py, m) {
         .def_readwrite("delta_u_min", &MPCLimits::delta_u_min)
         .def_readwrite("delta_u_max", &MPCLimits::delta_u_max);
 
+    py::enum_<SolveStatus>(m, "SolveStatus")
+        .value("Solved", SolveStatus::Solved)
+        .value("HeldPrevious", SolveStatus::HeldPrevious);
+
+    py::class_<SolveResult>(m, "SolveResult")
+        .def_readonly("status", &SolveResult::status)
+        .def_readonly("u", &SolveResult::u);
+
+
     py::class_<SafetyFilter>(m, "SafetyFilter")
         .def(py::init<const StochasticSystemModel&, MPCConfig,
                       const MPCWeights&, const MPCLimits&, double>(),

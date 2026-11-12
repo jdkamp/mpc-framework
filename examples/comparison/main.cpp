@@ -27,7 +27,7 @@ void run_sim(MPCController& controller,
     VectorXd x = x0;
     for(int t = 0; t < T; t++) {
         VectorXd x_ref_traj = x_ref_at(t);
-        VectorXd u = controller.solve(x, x_ref_traj);
+        VectorXd u = controller.solve(x, x_ref_traj).u;
         csv << t << "," << x(0) << "," << x(1) << "," << x(2) << "," << x(3)
             << "," << u(0) << "," << u(1) << "," << controller.get_solve_time() << "\n";
 

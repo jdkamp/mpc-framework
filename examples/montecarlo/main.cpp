@@ -26,7 +26,7 @@ int run_noisy_sim(MPCController& controller,
     int violations = 0;
     VectorXd x = x0;
     for(int t = 0; t < T; t++) {
-        VectorXd u = controller.solve(x, x_ref_at(t));
+        VectorXd u = controller.solve(x, x_ref_at(t)).u;
         x = plant(x, u, rng);
         if (x(1) > max_py) max_py = x(1);
         if(x(1) > py_bound) violations++;
@@ -47,7 +47,7 @@ void log_ensemble(MPCController& controller,
         std::mt19937 rng(i);
         VectorXd x = x0;
         for (int t = 0; t < T; t++) {
-            VectorXd u = controller.solve(x, x_ref_at(t));
+            VectorXd u = controller.solve(x, x_ref_at(t)).u;
             csv << i << "," << t << "," << x(1) << "\n";   // py per (rollout, t)
             x = plant(x, u, rng);
         }

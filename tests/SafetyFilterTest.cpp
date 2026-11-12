@@ -42,7 +42,7 @@ protected:
         double max_py = 0.0;
         for (int t = 0; t < steps; t++) {
             double delta = std::clamp(0.1 * (12.0 - x(1)) - 1.0 * x(2), -0.5, 0.5);
-            VectorXd u = filter.filter(x, (VectorXd(2) << delta, 0.0).finished());
+            VectorXd u = filter.filter(x, (VectorXd(2) << delta, 0.0).finished()).u;
 
             VectorXd dx = bicycle.dynamics(x, u);
             dx(2) += -k_true * x(3) * x(3) * u(0);
@@ -67,7 +67,7 @@ TEST_F(SafetyFilterTest, PassThroughSafeAction) {
 
     VectorXd x0(4); x0 << 0.0, 0.0, 0.0, 10.0;
     VectorXd u_rl(2); u_rl << 0.1, 0.0;
-    VectorXd u = filter.filter(x0, u_rl);
+    VectorXd u = filter.filter(x0, u_rl).u;
 
     EXPECT_NEAR(u(0), u_rl(0), 1e-4);
     EXPECT_NEAR(u(1), u_rl(1), 1e-4);
@@ -79,7 +79,7 @@ TEST_F(SafetyFilterTest, BlocksUnsafeAction) {
 
     VectorXd x0(4); x0 << 0.0, 8.0, 0.3, 10.0;  // near limit 0, heading into it
     VectorXd u_rl(2); u_rl << 0.4, 0.0;         // agent: steer into limit
-    VectorXd u = filter.filter(x0, u_rl);
+    VectorXd u = filter.filter(x0, u_rl).u;
 
     EXPECT_LT(u(0), u_rl(0));   // must reduce the steering
     EXPECT_LT(u(0), 0.1);

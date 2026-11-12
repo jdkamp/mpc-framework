@@ -57,7 +57,7 @@ int main() {
     VectorXd x = x0;
     for(int t = 0; t < T; t++) {
         // Solve MPC problem
-        VectorXd u = mpc.solve(x, x_ref_traj);
+        VectorXd u = mpc.solve(x, x_ref_traj).u;
 
         // Print state and input
         std::cout << std::fixed << std::setprecision(4)

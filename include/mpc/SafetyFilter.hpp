@@ -14,7 +14,7 @@ public:
                  const MPCWeights& weights, const MPCLimits& limits, double p);
 
     // Filter a proposed actions: return the closest safe action to u_rl
-    Eigen::VectorXd filter(const Eigen::VectorXd& x0, const Eigen::VectorXd& u_rl);
+    SolveResult filter(const Eigen::VectorXd& x0, const Eigen::VectorXd& u_rl);
 
 protected:
     void build_cost(const Eigen::MatrixXd& Su,

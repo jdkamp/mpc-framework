@@ -55,7 +55,7 @@ def measure_effective_bound(safety_filter, steps=40):
     max_py = 0.0
     for _ in range(steps):
         x = probe.x
-        u = safety_filter.filter(np.asarray(x), np.array([0.5, 0.0])) # full lock towards py
+        u = safety_filter.filter(np.asarray(x), np.array([0.5, 0.0])).u # full lock towards py
         probe.x = probe._dynamics(x, u)
         max_py = max(max_py, probe.x[1])
     return max_py
