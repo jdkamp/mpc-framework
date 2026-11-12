@@ -10,7 +10,7 @@ namespace mpc {
 // instead of tracling reference.
 class SafetyFilter : public SMPCController {
 public:
-    SafetyFilter(const StochasticSystemModel& model, MPCConfig config,
+    SafetyFilter(std::shared_ptr<const StochasticSystemModel> model, MPCConfig config,
                  const MPCWeights& weights, const MPCLimits& limits, double p);
 
     // Filter a proposed actions: return the closest safe action to u_rl

@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import json
+import gc
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(REPO_ROOT / "build")) # where CMake puts mpc_py.*.so
@@ -41,3 +42,12 @@ def test_filter_blocks_unsafe():
     f, gp = make_filter()
     u = f.filter(np.array([0.0, 8.0, 0.3, 10.0]), np.array([0.4, 0.0])).u
     assert u[0] < 0.1 # mirror of the C++ BlocksUnsafeAction test
+
+
+def test_filter_keeps_model_alive():
+    f, gp = make_filter()
+    del gp          # drop Python's reference, the filter's shared_ptr must keep the model
+    gc.collect()
+    res = f.filter(np.array([0.0, 0, 0, 10.0]), np.array([0.1, 0.0]))
+    assert res.status == mpc_py.SolveStatus.Solved
+    assert abs(res.u[0] - 0.1) < 1e-4 and abs(res.u[1]) < 1e-4

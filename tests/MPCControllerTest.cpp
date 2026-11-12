@@ -2,6 +2,7 @@
 #include "models/BicycleModel.hpp"
 #include "mpc/MPCController.hpp"
 #include <cmath>
+#include <memory>
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
@@ -10,11 +11,11 @@ using namespace mpc;
 
 class MPCControllerTest : public ::testing::Test {
 protected:
-    BicycleModel model{2.7};
+    std::shared_ptr<BicycleModel> model = std::make_shared<BicycleModel>(2.7);
     
     MPCConfig config;
-    MPCWeights weights{model};
-    MPCLimits limits{model};
+    MPCWeights weights{*model};
+    MPCLimits limits{*model};
 
     void SetUp() override {
         config.N = 30; // prediction horizon
@@ -199,7 +200,7 @@ TEST_F(MPCControllerTest, StateConstraints) {
 TEST_F(MPCControllerTest, DareProperties) {
     
     VectorXd x_trim = (VectorXd(4) << 0, 0, 0, 5.0).finished(); // trim at straight driving
-    MatrixXd Qf = weights.compute_dare(model, x_trim, config.dt);
+    MatrixXd Qf = weights.compute_dare(*model, x_trim, config.dt);
 
     // Check that the computed Qf is symmetric 
     EXPECT_TRUE(Qf.isApprox(Qf.transpose(), 1e-6));
@@ -221,7 +222,7 @@ TEST_F(MPCControllerTest, PredictedTrajectory) {
 
     // Check that trajectory has correct dimensions
     EXPECT_EQ(traj.rows(), config.N);
-    EXPECT_EQ(traj.cols(), model.state_dim());
+    EXPECT_EQ(traj.cols(), model->state_dim());
 }
 
 TEST_F(MPCControllerTest, ControlConvergence) {
@@ -237,7 +238,7 @@ TEST_F(MPCControllerTest, ControlConvergence) {
 
     // Stabilizing terminal cost
     VectorXd x_trim = (VectorXd(4) << 0, 0, 0, 5.0).finished();
-    weights.Qf = weights.compute_dare(model, x_trim, config.dt);
+    weights.Qf = weights.compute_dare(*model, x_trim, config.dt);
 
     // Input constraints
     limits.u_min = (VectorXd(2) << -0.5, -3.0).finished();
@@ -248,7 +249,7 @@ TEST_F(MPCControllerTest, ControlConvergence) {
     VectorXd x = x0;
     for(int t = 0; t < T; t++) {
         VectorXd u = mpc.solve(x,  x_ref.replicate(config.N, 1)).u;
-        x = x + config.dt * model.dynamics(x, u);
+        x = x + config.dt * model->dynamics(x, u);
     }
 
     // State should converge close to reference
@@ -283,7 +284,7 @@ TEST_F(MPCControllerTest, PredictionMatchesEulerStep) {
     MatrixXd pred = mpc.get_predicted_trajectory();
 
     // Euler dynamic
-    VectorXd x_euler = x0 + config.dt * model.dynamics(x0, u_ret);
+    VectorXd x_euler = x0 + config.dt * model->dynamics(x0, u_ret);
 
     // Check that the first predicted state matches the Euler step
     for (int i = 0; i < 4; i++)

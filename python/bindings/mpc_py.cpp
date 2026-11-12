@@ -12,10 +12,10 @@ PYBIND11_MODULE(mpc_py, m) {
 
     // Base classes: abstract, no constructors - registered so pybind knows
     // GPResidualModel is a StochasticSystemModel when matching signatures.
-    py::class_<SystemModel>(m, "SystemModel");
-    py::class_<StochasticSystemModel, SystemModel>(m, "StochasticSystemModel");
+    py::class_<SystemModel, std::shared_ptr<SystemModel>>(m, "SystemModel");
+    py::class_<StochasticSystemModel, SystemModel, std::shared_ptr<StochasticSystemModel>>(m, "StochasticSystemModel");
 
-    py::class_<GPResidualModel, StochasticSystemModel>(m, "GPResidualModel")
+    py::class_<GPResidualModel, StochasticSystemModel, std::shared_ptr<GPResidualModel>>(m, "GPResidualModel")
         .def(py::init<const std::string&, double>(),
             py::arg("params_path"), py::arg("wheelbase"))
         .def("variance", &GPResidualModel::variance);
@@ -51,15 +51,14 @@ PYBIND11_MODULE(mpc_py, m) {
 
 
     py::class_<SafetyFilter>(m, "SafetyFilter")
-        .def(py::init<const StochasticSystemModel&, MPCConfig,
+        .def(py::init<std::shared_ptr<const StochasticSystemModel>, MPCConfig,
                       const MPCWeights&, const MPCLimits&, double>(),
             py::arg("model"), py::arg("config"), py::arg("weights"),
-            py::arg("limits"), py::arg("p"),
-            py::keep_alive<1, 2>())          // the filter keeps the model alive
+            py::arg("limits"), py::arg("p"))
         .def("filter", &SafetyFilter::filter,
             py::arg("x0"), py::arg("u_rl"));
 
-    py::class_<BicycleModel, SystemModel>(m, "BicycleModel")
+    py::class_<BicycleModel, SystemModel, std::shared_ptr<BicycleModel>>(m, "BicycleModel")
         .def(py::init<double>(), py::arg("wheelbase"))
         .def("dynamics", &BicycleModel::dynamics,
             py::arg("x"), py::arg("u"));

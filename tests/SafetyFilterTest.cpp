@@ -5,6 +5,7 @@
 #include "models/ConstantVelocityAgent.hpp"
 #include <random>
 #include <algorithm>
+#include <memory>
 
 using Eigen::VectorXd;
 using namespace mpc;
@@ -12,12 +13,12 @@ using namespace mpc;
 class SafetyFilterTest : public ::testing::Test {
 protected:
     double wheelbase = 2.7;
-    GPResidualModel gp{GP_PARAMS_PATH, wheelbase};
+    std::shared_ptr<GPResidualModel> gp = std::make_shared<GPResidualModel>(GP_PARAMS_PATH, wheelbase);
     BicycleModel bicycle{wheelbase};
     double k_true = 0.004;
     MPCConfig config;
-    MPCWeights weights{gp};
-    MPCLimits limits{gp};
+    MPCWeights weights{*gp};
+    MPCLimits limits{*gp};
 
     void SetUp() override {
         config.N = 30;
@@ -49,7 +50,7 @@ protected:
             x = x + config.dt * dx;
 
             if (noise) {
-                double sigma = std::sqrt(gp.variance(x, u)(2));
+                double sigma = std::sqrt(gp->variance(x, u)(2));
                 double u1 = uniform01(), u2 = uniform01();
                 double z = std::sqrt(-2.0 * std::log(u1 + 1e-12)) * std::cos(2.0 * M_PI * u2);
                 x(2) += sigma * z;

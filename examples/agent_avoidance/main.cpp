@@ -9,6 +9,7 @@
 #include "models/GPResidualModel.hpp"
 #include "models/ConstantVelocityAgent.hpp"
 #include "mpc/SMPCController.hpp"
+#include <memory>
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -121,15 +122,15 @@ int main() {
 
     double wheelbase = 2.7, r_safe = 1.0;
     BicycleModel bicycle(wheelbase);
-    GPResidualModel gp(GP_PARAMS_PATH, wheelbase);
+    auto gp = std::make_shared<GPResidualModel>(GP_PARAMS_PATH, wheelbase);
 
-    MPCWeights weights(gp);
+    MPCWeights weights(*gp);
     weights.Q = Vector4d(0, 10, 50, 10).asDiagonal();
     weights.R = Vector2d(1, 10).asDiagonal();
     VectorXd x_trim = (VectorXd(4) << 0, 0, 0, 10).finished();
-    weights.Qf = weights.compute_dare(gp, x_trim, config.dt);
+    weights.Qf = weights.compute_dare(*gp, x_trim, config.dt);
 
-    MPCLimits limits(gp);
+    MPCLimits limits(*gp);
     limits.u_min = Vector2d(-0.5, -5.0);
     limits.u_max = Vector2d( 0.5,  5.0);
     limits.x_min(1) = -2.5;
@@ -143,7 +144,7 @@ int main() {
         SMPCController smpc(gp, config, weights, limits, 0.95);
         ConstantVelocityAgent agent(0.0, 0.0);           // sigma0^2 = 0, q = 0
         smpc.set_agent(&agent, r_safe);
-        run_sim(smpc, agent, bicycle, gp, config, x0, x_ref, r_safe, T, 0,
+        run_sim(smpc, agent, bicycle, *gp, config, x0, x_ref, r_safe, T, 0,
                               "output/agent_deterministic.csv");
     }
 
@@ -152,7 +153,7 @@ int main() {
         SMPCController smpc(gp, config, weights, limits, 0.95);
         ConstantVelocityAgent agent(/*sigma0_sq=*/0.01, /*q=*/0.1);
         smpc.set_agent(&agent, r_safe);
-        run_sim(smpc, agent, bicycle, gp, config, x0, x_ref, r_safe, T, 0,
+        run_sim(smpc, agent, bicycle, *gp, config, x0, x_ref, r_safe, T, 0,
                               "output/agent_chance.csv");
     }
 
@@ -173,13 +174,13 @@ int main() {
             SMPCController smpc(gp, config, weights, limits, 0.95);
             ConstantVelocityAgent agent(0.0, 0.0);
             smpc.set_agent(&agent, r_safe);
-            rp.det = run_sim(smpc, agent, bicycle, gp, config, x0, x_ref, r_safe, T, s, "");
+            rp.det = run_sim(smpc, agent, bicycle, *gp, config, x0, x_ref, r_safe, T, s, "");
         }
         {
             SMPCController smpc(gp, config, weights, limits, 0.95);
             ConstantVelocityAgent agent(0.01, 0.1);
             smpc.set_agent(&agent, r_safe);
-            rp.chance = run_sim(smpc, agent, bicycle, gp, config, x0, x_ref, r_safe, T, s, "");
+            rp.chance = run_sim(smpc, agent, bicycle, *gp, config, x0, x_ref, r_safe, T, s, "");
         }
         return rp;
     };

@@ -3,6 +3,7 @@
 #include "mpc/MPCController.hpp"
 #include "mpc/SMPCController.hpp"
 #include "models/ConstantVelocityAgent.hpp"
+#include <memory>
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
@@ -41,10 +42,10 @@ public:
 
 class SMPCControllerTest : public ::testing::Test {
 protected:
-    BicycleModel det_model{2.7};
+std::shared_ptr<BicycleModel> det_model = std::make_shared<BicycleModel>(2.7);
     MPCConfig config;
-    MPCWeights weights{det_model};
-    MPCLimits limits{det_model};
+    MPCWeights weights{*det_model};
+    MPCLimits limits{*det_model};
     VectorXd x0{4}, x_ref{4};
 
     void SetUp() override {
@@ -52,7 +53,7 @@ protected:
         weights.Q = Vector4d(0, 10, 50, 10).asDiagonal();
         weights.R = Vector2d(1, 10).asDiagonal();
         VectorXd x_trim = (VectorXd(4) << 0, 0, 0, 5).finished();
-        weights.Qf = weights.compute_dare(det_model, x_trim, config.dt);
+        weights.Qf = weights.compute_dare(*det_model, x_trim, config.dt);
         limits.x_max(1) = 1.0;
         x0 << 0, 0, 0, 5;
         x_ref << 0, 2, 0, 5;
@@ -61,7 +62,7 @@ protected:
 
 // With zero variance, SMPC must reduce exactly to deterministic MPC (backoff = 0)
 TEST_F(SMPCControllerTest, NoVarianceMatchesDeterministic) {
-    ConsVarianceModel model(0.0);
+    auto model = std::make_shared<ConsVarianceModel>(0.0);
 
     MPCController det_mpc(det_model, config, weights, limits);
     SMPCController smpc(model, config, weights, limits, 0.95);
@@ -76,7 +77,7 @@ TEST_F(SMPCControllerTest, NoVarianceMatchesDeterministic) {
 
 // Non-zero variance must back the predicted trajectory off from an active constraint
 TEST_F(SMPCControllerTest, TighterThanNominal) {
-    ConsVarianceModel model(0.001); // uncertainty on py
+    auto model = std::make_shared<ConsVarianceModel>(0.001);    // uncertainty on py
 
     MPCController det_mpc(det_model, config, weights, limits);
     SMPCController smpc(model, config, weights, limits, 0.95);
@@ -92,7 +93,7 @@ TEST_F(SMPCControllerTest, TighterThanNominal) {
 
 // An agent far from the ego must not change the solution
 TEST_F(SMPCControllerTest, FarAgentIsNoOp) {
-    ConsVarianceModel model(0.001);
+    auto model = std::make_shared<ConsVarianceModel>(0.001);
 
     SMPCController smpc_no_agent(model, config, weights, limits, 0.95);
     SMPCController smpc_agent(model, config, weights, limits, 0.95);
@@ -110,7 +111,7 @@ TEST_F(SMPCControllerTest, FarAgentIsNoOp) {
 
 // An agent above the ego must tighten the py bound below the static limit
 TEST_F(SMPCControllerTest, AgentTightensBound) {
-    ConsVarianceModel model(0.001);
+    auto model = std::make_shared<ConsVarianceModel>(0.001);
 
     SMPCController smpc_no_agent(model, config, weights, limits, 0.95);
     SMPCController smpc_agent(model, config, weights, limits, 0.95);

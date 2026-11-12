@@ -1,34 +1,35 @@
 #include "mpc/SMPCController.hpp"
 #include <cmath>
 #include <algorithm>
+#include <utility>
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
 
 namespace mpc {
 
-SMPCController::SMPCController(const StochasticSystemModel& model, MPCConfig config, 
+SMPCController::SMPCController(std::shared_ptr<const StochasticSystemModel> model, MPCConfig config, 
                                 const MPCWeights& weights, const MPCLimits& limits, double p) :
     MPCController(model, config, weights, limits),  // Base gets Systemmodel as refrence
-    smodel_(model),                                 // keep the typed reference
+    smodel_(std::move(model)),                                 // keep the typed reference
     p_(p)
 {}
 
 VectorXd SMPCController::tube_variances(const VectorXd& x0) const {
-    int n = model_.state_dim();
+    int n = model_->state_dim();
     int N = config_.N;
-    VectorXd u0 = VectorXd::Zero(model_.input_dim());
+    VectorXd u0 = VectorXd::Zero(model_->input_dim());
 
     // Linearize at x0 and discretize
-    MatrixXd A_d = MatrixXd::Identity(n, n) + config_.dt * smodel_.jacobian_x(x0, u0);
-    MatrixXd B_d = config_.dt * smodel_.jacobian_u(x0, u0);
+    MatrixXd A_d = MatrixXd::Identity(n, n) + config_.dt * smodel_->jacobian_x(x0, u0);
+    MatrixXd B_d = config_.dt * smodel_->jacobian_u(x0, u0);
 
     // Closed-loop dynamics using the LQR gain
-    MatrixXd K = weights_.compute_lqr_gain(smodel_, x0, config_.dt);
+    MatrixXd K = weights_.compute_lqr_gain(*smodel_, x0, config_.dt);
     MatrixXd A_cl = A_d + B_d * K;
 
     // Process-noise covariance from the model's state-dependent variance
-    MatrixXd Sigma_w = smodel_.variance(x0, u0).asDiagonal();
+    MatrixXd Sigma_w = smodel_->variance(x0, u0).asDiagonal();
 
     // Propagate the tube and build the per-step backoff
     VectorXd var(n * N);
@@ -51,7 +52,7 @@ VectorXd SMPCController::state_upper_bounds(const VectorXd& x_free, const Vector
     VectorXd ub = MPCController::state_upper_bounds(x_free, x0) - compute_backoff(x0);  // tighten down
 
     if (agent_) {
-        int n = model_.state_dim();
+        int n = model_->state_dim();
         int N = config_.N;
         double c = std::sqrt(p_ / (1.0 - p_));
         AgentPrediction pred = agent_->predict(N, config_.dt);

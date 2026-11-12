@@ -4,6 +4,7 @@
 #include <chrono>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 
 using Eigen::VectorXd;
@@ -99,14 +100,16 @@ MPCLimits::MPCLimits(const SystemModel& model) : // default to no constraints
 {}
 
 // MPCController
-MPCController::MPCController(const SystemModel& model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits) :
+MPCController::MPCController(std::shared_ptr<const SystemModel> model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits) :
     solve_time_(0.0),
-    previous_u_(VectorXd::Zero(model.input_dim())),
-    model_(model), 
+    model_(std::move(model)), 
     config_(config), 
     weights_(weights),
     limits_(limits) 
 {
+    if (!model_)
+        throw std::invalid_argument("MPCController: model must not be null");
+    previous_u_ = VectorXd::Zero(model_->input_dim());
     if (config_.N <= 0)
         throw std::invalid_argument(
             "MPCConfig.N must be > 0, got " + std::to_string(config_.N));
@@ -117,7 +120,7 @@ MPCController::MPCController(const SystemModel& model, MPCConfig config, const M
 
 MatrixXd MPCController::get_predicted_trajectory() const {
     return Eigen::Map<const Eigen::MatrixXd>(predicted_trajectory_.data(),                  // Map the predicted trajectory to a matrix of shape (N, state_dim)
-                                             model_.state_dim(), config_.N).transpose();
+                                             model_->state_dim(), config_.N).transpose();
 }
 
 double MPCController::get_solve_time() const {
@@ -125,8 +128,8 @@ double MPCController::get_solve_time() const {
 }
 
 SolveResult MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
-    int n = model_.state_dim();
-    int m = model_.input_dim();
+    int n = model_->state_dim();
+    int m = model_->input_dim();
     int N = config_.N;
 
     int nU = m * N;     // number control variables
@@ -138,8 +141,8 @@ SolveResult MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     // Build MPC matrices
     // Linearization
     VectorXd u0 = VectorXd::Zero(m);
-    MatrixXd A = model_.jacobian_x(x0, u0);
-    MatrixXd B = model_.jacobian_u(x0, u0);
+    MatrixXd A = model_->jacobian_x(x0, u0);
+    MatrixXd B = model_->jacobian_u(x0, u0);
 
     // Discretization using Euler method
     MatrixXd A_d = MatrixXd::Identity(n, n) + config_.dt * A;
@@ -147,7 +150,7 @@ SolveResult MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
 
     // Affine offset of the linearization: x_{k+1} = A_d x_k + B_d u_k + c.
     // Without it the prediction double-counts the free response away from (x0, u0).
-    VectorXd c = config_.dt * (model_.dynamics(x0, u0) - A * x0 - B * u0);
+    VectorXd c = config_.dt * (model_->dynamics(x0, u0) - A * x0 - B * u0);
 
 
     // Build Sx (n*N x n) and Su (n*N x m*N), the lifted free/forced response:
@@ -347,8 +350,8 @@ void MPCController::build_cost(const MatrixXd& Su,
                               MatrixXd& P,
                               VectorXd& q) const {
 
-    int n = model_.state_dim();
-    int m = model_.input_dim();
+    int n = model_->state_dim();
+    int m = model_->input_dim();
     int N = config_.N;
 
     // Build Q_bar, R_bar, S_bar

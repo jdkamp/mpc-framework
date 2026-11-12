@@ -5,6 +5,7 @@
 #include "StochasticSystemModel.hpp"
 #include "AgentPredictor.hpp"
 #include <Eigen/Dense>
+#include <memory>
 
 namespace mpc {
 
@@ -14,9 +15,10 @@ namespace mpc {
 class SMPCController : public MPCController {
 public:
     // p = required chance-constraint satisfaction probability (e.g. 0.95)
-    SMPCController(const StochasticSystemModel& model, MPCConfig config, 
+    SMPCController(std::shared_ptr<const StochasticSystemModel> model, MPCConfig config, 
                    const MPCWeights& weights, const MPCLimits& limits, double p);
-    // set agent, nullptr = no agent
+    // Non-owning: the caller must keep the predictor alive while this controller uses it.
+    // Pass nullptr to remove the agent constraint.
     void set_agent(const AgentPredictor* agent, double r_safe);
 
 protected:
@@ -24,7 +26,7 @@ protected:
     Eigen::VectorXd state_lower_bounds(const Eigen::VectorXd& x_free, const Eigen::VectorXd& x0) const override;
 
 private:
-    const StochasticSystemModel& smodel_;   // typed reference
+    std::shared_ptr<const StochasticSystemModel> smodel_;   // typed reference
     double p_;                              // chance-constraint satisfaction probability
     const AgentPredictor* agent_ = nullptr;
     double r_safe_ = 0.0;

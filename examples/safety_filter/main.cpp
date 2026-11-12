@@ -1,6 +1,7 @@
 #include "models/BicycleModel.hpp"
 #include "models/GPResidualModel.hpp"
 #include "mpc/SafetyFilter.hpp"
+#include <memory>
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -20,7 +21,7 @@ int main() {
 
     double wheelbase = 2.7;
     BicycleModel bicycle(wheelbase);
-    GPResidualModel gp(GP_PARAMS_PATH, wheelbase);
+    auto gp = std::make_shared<GPResidualModel>(GP_PARAMS_PATH, wheelbase);
 
     // The true plant: nominal bicycle + true residual + GP-sigma disturbance
     double k_true = 0.004;
@@ -29,7 +30,7 @@ int main() {
         VectorXd dx = bicycle.dynamics(x, u);
         dx(2) += -k_true * x(3) * x(3) * u(0);
         VectorXd x_next = x + config.dt * dx;
-        double sigma = std::sqrt(gp.variance(x, u)(2));
+        double sigma = std::sqrt(gp->variance(x, u)(2));
         std::normal_distribution<double> noise(0.0, sigma);
         x_next(2) += noise(rng);
         return x_next;
@@ -42,8 +43,8 @@ int main() {
         return (VectorXd(2) << delta, 0.0).finished();
     };
 
-    MPCWeights weights(gp);
-    MPCLimits limits(gp);
+    MPCWeights weights(*gp);
+    MPCLimits limits(*gp);
     limits.u_min = (VectorXd(2) << -0.5, -3.0).finished();
     limits.u_max = (VectorXd(2) <<  0.5,  3.0).finished();
     limits.delta_u_min = (VectorXd(2) << -1.0, -5.0).finished();

@@ -4,6 +4,7 @@
 #include "SystemModel.hpp"
 #include <Eigen/Dense>
 #include <OsqpEigen/OsqpEigen.h>
+#include <memory>
 
 namespace mpc {
 
@@ -88,7 +89,7 @@ struct [[nodiscard]] SolveResult {
 class MPCController {
 public:
     // Construct MPC controller with a system model and mpc config
-    MPCController(const SystemModel& model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits);
+    MPCController(std::shared_ptr<const SystemModel> model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits);
     
     // Solve the MPC problem from state x0 tracking x_ref(n*N) over prediction horizon N
     // Returns the first optimal control input [delta, a]
@@ -109,7 +110,7 @@ private:
 
 protected:
     // Model
-    const SystemModel& model_;
+    std::shared_ptr<const SystemModel> model_;
     // MPC inputs
     MPCConfig config_;
     MPCWeights weights_;
