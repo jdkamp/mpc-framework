@@ -59,6 +59,43 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11)
 
+# Third-party headers are SYSTEM includes: our own targets are built with -Werror, and
+# warnings inside Eigen/OSQP/etc. are neither ours to fix nor allowed to break the build.
+# (FetchContent targets are in-tree, so unlike imported targets they are not SYSTEM by default.)
+function(mpc_mark_system)
+    foreach(tgt IN LISTS ARGN)
+        if(TARGET ${tgt})
+            get_target_property(real ${tgt} ALIASED_TARGET)
+            if(NOT real)
+                set(real ${tgt})
+            endif()
+            get_target_property(inc ${real} INTERFACE_INCLUDE_DIRECTORIES)
+            if(inc)
+                set_property(TARGET ${real} APPEND PROPERTY
+                    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${inc})
+            endif()
+        endif()
+    endforeach()
+endfunction()
+
+mpc_mark_system(
+    Eigen3::Eigen
+    osqp osqpstatic
+    OsqpEigen::OsqpEigen
+    nlohmann_json::nlohmann_json
+    GTest::gtest GTest::gtest_main
+    pybind11::headers
+)
+
+# Strict warnings for our own targets only - never for the dependencies above.
+function(mpc_target_warnings)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        foreach(tgt IN LISTS ARGN)
+            target_compile_options(${tgt} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+        endforeach()
+    endif()
+endfunction()
+
 pybind11_add_module(mpc_py python/bindings/mpc_py.cpp)
 target_link_libraries(mpc_py PRIVATE mpc_controller gp_residual_model)
 
@@ -195,4 +232,10 @@ target_link_libraries(agent_avoidance
 )
 target_compile_definitions(agent_avoidance PRIVATE
     GP_PARAMS_PATH="${CMAKE_SOURCE_DIR}/data/gp_params.json"
+)
+
+mpc_target_warnings(
+    bicycle_model mpc_controller gp_residual_model agent_predictor
+    tests mpc_py
+    lane_keeping path_following comparison montecarlo safety_filter agent_avoidance
 )

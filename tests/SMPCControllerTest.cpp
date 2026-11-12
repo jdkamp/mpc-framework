@@ -31,7 +31,7 @@ public:
     int input_dim() const override{
         return bicycle_model_.input_dim();
     }
-    VectorXd variance(const VectorXd& x, const VectorXd& u) const override {
+    VectorXd variance(const VectorXd& /*x*/, const VectorXd& /*u*/) const override {
         VectorXd v = VectorXd::Zero(4);
         v(1) = var_;    // uncertainty on py
         return v;

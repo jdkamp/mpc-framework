@@ -95,12 +95,12 @@ MPCLimits::MPCLimits(const SystemModel& model) : // default to no constraints
 
 // MPCController
 MPCController::MPCController(const SystemModel& model, MPCConfig config, const MPCWeights& weights, const MPCLimits& limits) :
+    solve_time_(0.0),
+    previous_u_(VectorXd::Zero(model.input_dim())),
     model_(model), 
     config_(config), 
     weights_(weights),
-    limits_(limits),
-    solve_time_(0.0),
-    previous_u_(VectorXd::Zero(model.input_dim())) { }
+    limits_(limits) { }
 
 MatrixXd MPCController::get_predicted_trajectory() const {
     return Eigen::Map<const Eigen::MatrixXd>(predicted_trajectory_.data(),                  // Map the predicted trajectory to a matrix of shape (N, state_dim)
@@ -319,11 +319,11 @@ VectorXd MPCController::solve(const VectorXd& x0, const VectorXd& x_ref) {
     return U.segment(0, m);
 }
 
-VectorXd MPCController::state_upper_bounds(const VectorXd& x_free, const VectorXd& x0) const {
+VectorXd MPCController::state_upper_bounds(const VectorXd& x_free, const VectorXd& /*x0*/) const {
     return limits_.x_max.replicate(config_.N, 1) - x_free;
 }
 
-VectorXd MPCController::state_lower_bounds(const VectorXd& x_free, const VectorXd& x0) const {
+VectorXd MPCController::state_lower_bounds(const VectorXd& x_free, const VectorXd& /*x0*/) const {
     return limits_.x_min.replicate(config_.N, 1) - x_free;
 }
 

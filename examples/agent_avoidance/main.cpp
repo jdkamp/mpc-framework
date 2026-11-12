@@ -142,7 +142,7 @@ int main() {
         SMPCController smpc(gp, config, weights, limits, 0.95);
         ConstantVelocityAgent agent(0.0, 0.0);           // sigma0^2 = 0, q = 0
         smpc.set_agent(&agent, r_safe);
-        SimResult r = run_sim(smpc, agent, bicycle, gp, config, x0, x_ref, r_safe, T, 0,
+        run_sim(smpc, agent, bicycle, gp, config, x0, x_ref, r_safe, T, 0,
                               "output/agent_deterministic.csv");
     }
 
@@ -151,7 +151,7 @@ int main() {
         SMPCController smpc(gp, config, weights, limits, 0.95);
         ConstantVelocityAgent agent(/*sigma0_sq=*/0.01, /*q=*/0.1);
         smpc.set_agent(&agent, r_safe);
-        SimResult r = run_sim(smpc, agent, bicycle, gp, config, x0, x_ref, r_safe, T, 0,
+        run_sim(smpc, agent, bicycle, gp, config, x0, x_ref, r_safe, T, 0,
                               "output/agent_chance.csv");
     }
 

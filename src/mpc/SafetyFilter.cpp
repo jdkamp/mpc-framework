@@ -14,11 +14,11 @@ VectorXd SafetyFilter::filter(const VectorXd& x0, const VectorXd& u_rl) {
     return solve(x0, VectorXd::Zero(model_.state_dim() * config_.N));
 }
 
-void SafetyFilter::build_cost(const MatrixXd& Su,
-                              const VectorXd& x_free,
-                              const VectorXd& x_ref,
-                              const MatrixXd& D,
-                              const VectorXd& d_prev,
+void SafetyFilter::build_cost(const MatrixXd& /*Su*/,
+                              const VectorXd& /*x_free*/,
+                              const VectorXd& /*x_ref*/,
+                              const MatrixXd& /*D*/,
+                              const VectorXd& /*d_prev*/,
                               MatrixXd& P,
                               VectorXd& q) const {
     int m = model_.input_dim();

@@ -6,8 +6,7 @@ using Eigen::MatrixXd;
 
 VectorXd BicycleModel::dynamics(const VectorXd& x, const VectorXd& u) const {
     // system states
-    double px    = x(0);    // x-position
-    double py    = x(1);    // y-position
+    // (px = x(0) and py = x(1) do not enter the kinematics)
     double psi   = x(2);    // yaw angle
     double vel   = x(3);    // vehicle velocity
 
