@@ -2,6 +2,8 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <cmath>
+#include <stdexcept>
+#include <string>
 
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
@@ -9,12 +11,20 @@ using json = nlohmann::json;
 
 namespace mpc {
 
-GPResidualModel::GPResidualModel(const std::string& params_path, double wheelbase) :
+GPResidualModel::GPResidualModel(const std::filesystem::path& params_path, double wheelbase) :
     bicycle_model_(wheelbase)   // TODO: generalize, currently this is a GPResidual Bicycle Model
 {
     // Open and parse JSON file
     std::ifstream f(params_path);
-    json params = json::parse(f);
+    if (!f)
+        throw std::runtime_error("GPResidualModel: cannot open '" + params_path.string() + "'");
+
+    json params;
+    try {
+        params = json::parse(f);
+    } catch (const json::parse_error& e) {
+        throw std::runtime_error("GPResidualModel: invalid JSON in '" + params_path.string() + "': " + e.what());
+    }
 
     // Kerne hyperparameters
     sigma_f_sq_ = params["kernel"]["output_scale"];

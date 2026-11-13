@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
+#include <pybind11/stl/filesystem.h>
 #include "models/GPResidualModel.hpp"
 #include "models/BicycleModel.hpp"
 #include "mpc/SafetyFilter.hpp"
@@ -16,7 +17,7 @@ PYBIND11_MODULE(mpc_py, m) {
     py::class_<StochasticSystemModel, SystemModel, std::shared_ptr<StochasticSystemModel>>(m, "StochasticSystemModel");
 
     py::class_<GPResidualModel, StochasticSystemModel, std::shared_ptr<GPResidualModel>>(m, "GPResidualModel")
-        .def(py::init<const std::string&, double>(),
+        .def(py::init<const std::filesystem::path&, double>(),
             py::arg("params_path"), py::arg("wheelbase"))
         .def("variance", &GPResidualModel::variance);
 

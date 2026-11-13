@@ -4,14 +4,15 @@
 #include "StochasticSystemModel.hpp"
 #include "models/BicycleModel.hpp"
 #include <Eigen/Dense>
-#include <string>
+#include <filesystem>
 
 namespace mpc {
 
 class GPResidualModel : public StochasticSystemModel {
 public:
-    // Construct GP residual model with the parameters path and wheelbase
-    GPResidualModel(const std::string& params_path, double wheelbase);
+    // Construct GP residual model from the JSON parameter file and the wheelbase.
+    // Throws std::runtime_error naming the path if the file cannot be opened or parsed.
+    GPResidualModel(const std::filesystem::path& params_path, double wheelbase);
 
     // SystemModel interface
     [[nodiscard]] Eigen::VectorXd dynamics(const Eigen::VectorXd& x, const Eigen::VectorXd& u) const override;

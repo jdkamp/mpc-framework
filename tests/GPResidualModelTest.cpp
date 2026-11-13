@@ -4,6 +4,9 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include <filesystem>
+#include <stdexcept>
+#include <string>
 
 using Eigen::VectorXd;
 using namespace mpc;
@@ -52,4 +55,30 @@ TEST_F(GPResidualModelTest, JacobianMatchesFiniteDifference) {
         double fd_d = (gp_model.dynamics(x, up)(2) - gp_model.dynamics(x, u)(2)) / eps;
         EXPECT_NEAR(gp_model.jacobian_u(x, u)(2, 0), fd_d, 1e-4);
     }
+}
+
+// Error handling has no use for the fixture (which loads the valid file), hence its own suite
+
+// A missing parameter file must fail loudly at construction, naming the path
+TEST(GPResidualModelErrors, MissingFileThrowsWithPath) {
+    const std::filesystem::path missing = "does/not/exist/gp_params.json";
+    try {
+        GPResidualModel gp(missing, 2.7);
+        FAIL() << "expected std::runtime_error";
+    } catch (const std::runtime_error& e) {
+        EXPECT_NE(std::string(e.what()).find(missing.string()), std::string::npos) << e.what();
+    }
+}
+
+// A file that exists but is not valid JSON must also throw, naming the path
+TEST(GPResidualModelErrors, InvalidJsonThrowsWithPath) {
+    const std::filesystem::path bad = std::filesystem::temp_directory_path() / "mpc_invalid_gp_params.json";
+    std::ofstream(bad) << "{ not json";
+    try {
+        GPResidualModel gp(bad, 2.7);
+        FAIL() << "expected std::runtime_error";
+    } catch (const std::runtime_error& e) {
+        EXPECT_NE(std::string(e.what()).find(bad.string()), std::string::npos) << e.what();
+    }
+    std::filesystem::remove(bad);
 }

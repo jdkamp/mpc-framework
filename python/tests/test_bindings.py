@@ -51,3 +51,9 @@ def test_filter_keeps_model_alive():
     res = f.filter(np.array([0.0, 0, 0, 10.0]), np.array([0.1, 0.0]))
     assert res.status == mpc_py.SolveStatus.Solved
     assert abs(res.u[0] - 0.1) < 1e-4 and abs(res.u[1]) < 1e-4
+
+
+def test_gp_missing_file_raises_with_path():
+    missing = REPO_ROOT / "does" / "not" / "exist.json"
+    with pytest.raises(RuntimeError, match="exist.json"):
+        mpc_py.GPResidualModel(missing, 2.7)    # pathlib.Path accepted directly
